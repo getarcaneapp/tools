@@ -1,0 +1,12 @@
+# Third-Party Manifest
+
+This repository ships the following third-party binaries in the final runtime
+image.
+
+| Binary | Version | Upstream source | Verification source | License | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Trivy | 0.69.3 | https://github.com/aquasecurity/trivy/releases/download/v0.69.3/trivy_0.69.3_Linux-64bit.tar.gz and https://github.com/aquasecurity/trivy/releases/download/v0.69.3/trivy_0.69.3_Linux-ARM64.tar.gz | [checksums/trivy_0.69.3_checksums.txt](/Users/kmendell/code/getarcaneapp/tools/checksums/trivy_0.69.3_checksums.txt) copied from the official release checksum file | Apache-2.0 | Installed to `/usr/local/bin/trivy` in the final image |
+| BusyBox | 1.37.0 | https://busybox.net/downloads/busybox-1.37.0.tar.bz2 | [checksums/busybox-1.37.0.tar.bz2.sha256](/Users/kmendell/code/getarcaneapp/tools/checksums/busybox-1.37.0.tar.bz2.sha256) copied from the official upstream checksum file | GPL-2.0-only | Built from verified source with `CONFIG_STATIC=y`; `/bin/busybox` provides the Arcane helper applets |
+
+The CA certificate bundle is copied from Alpine's `ca-certificates` package
+during the build and is not treated as a separately versioned executable binary.
