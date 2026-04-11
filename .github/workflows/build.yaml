@@ -16,6 +16,7 @@ permissions:
 
 env:
     IMAGE_NAME: ghcr.io/getarcaneapp/tools
+    PUBLISH_PLATFORMS: linux/amd64,linux/386,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
 
 jobs:
     validate:
@@ -74,7 +75,7 @@ jobs:
                   project: np622krb2x
                   context: .
                   file: ./Dockerfile
-                  platforms: linux/amd64,linux/arm64
+                  platforms: ${{ env.PUBLISH_PLATFORMS }}
                   push: true
                   tags: ${{ steps.meta.outputs.tags }}
                   labels: ${{ steps.meta.outputs.labels }}
@@ -83,5 +84,6 @@ jobs:
               run: |
                   {
                     echo "Published image: ${{ env.IMAGE_NAME }}"
+                    echo "Published platforms: ${{ env.PUBLISH_PLATFORMS }}"
                     echo "Published digest: ${{ steps.build.outputs.digest }}"
                   } >> "$GITHUB_STEP_SUMMARY"

@@ -6,6 +6,7 @@ ARG BUSYBOX_VERSION=1.37.0
 
 FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS trivy-fetcher
 ARG TARGETARCH
+ARG TARGETVARIANT
 ARG TRIVY_VERSION
 
 RUN apk add --no-cache ca-certificates curl tar
@@ -14,10 +15,14 @@ WORKDIR /work
 
 COPY checksums/trivy_0.69.3_checksums.txt /checksums/trivy_checksums.txt
 
-RUN case "${TARGETARCH}" in \
-    amd64) trivy_arch='64bit' ;; \
-    arm64) trivy_arch='ARM64' ;; \
-    *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+RUN case "${TARGETARCH}/${TARGETVARIANT}" in \
+    amd64/*) trivy_arch='64bit' ;; \
+    386/*) trivy_arch='32bit' ;; \
+    arm64/*) trivy_arch='ARM64' ;; \
+    arm/v7) trivy_arch='ARM' ;; \
+    ppc64le/*) trivy_arch='PPC64LE' ;; \
+    s390x/*) trivy_arch='s390x' ;; \
+    *) echo "unsupported TARGETARCH/TARGETVARIANT: ${TARGETARCH}/${TARGETVARIANT}" >&2; exit 1 ;; \
     esac && \
     trivy_file="trivy_${TRIVY_VERSION}_Linux-${trivy_arch}.tar.gz" && \
     curl -fsSLO "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${trivy_file}" && \
