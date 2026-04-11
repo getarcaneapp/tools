@@ -10,6 +10,7 @@ on:
     workflow_dispatch:
 
 permissions:
+    artifact-metadata: write
     attestations: write
     contents: read
     packages: write
