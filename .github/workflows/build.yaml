@@ -10,6 +10,7 @@ on:
     workflow_dispatch:
 
 permissions:
+    attestations: write
     contents: read
     packages: write
     id-token: write
@@ -80,10 +81,18 @@ jobs:
                   tags: ${{ steps.meta.outputs.tags }}
                   labels: ${{ steps.meta.outputs.labels }}
 
+            - name: Generate image digest attestation
+              uses: actions/attest@v4
+              with:
+                  subject-name: ${{ env.IMAGE_NAME }}
+                  subject-digest: ${{ steps.build.outputs.digest }}
+                  push-to-registry: true
+
             - name: Record published digest
               run: |
                   {
                     echo "Published image: ${{ env.IMAGE_NAME }}"
                     echo "Published platforms: ${{ env.PUBLISH_PLATFORMS }}"
                     echo "Published digest: ${{ steps.build.outputs.digest }}"
+                    echo "Published attestation: ${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
                   } >> "$GITHUB_STEP_SUMMARY"
