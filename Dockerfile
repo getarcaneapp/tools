@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 ARG ALPINE_VERSION=3.23
-ARG TRIVY_VERSION=0.69.3
+ARG TRIVY_VERSION=0.70.0
 ARG BUSYBOX_VERSION=1.37.0
 
 FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS trivy-fetcher
@@ -13,7 +13,7 @@ RUN apk add --no-cache ca-certificates curl tar
 
 WORKDIR /work
 
-COPY checksums/trivy_0.69.3_checksums.txt /checksums/trivy_checksums.txt
+COPY checksums/trivy_0.70.0_checksums.txt /checksums/trivy_checksums.txt
 
 RUN case "${TARGETARCH}/${TARGETVARIANT}" in \
     amd64/*) trivy_arch='64bit' ;; \
