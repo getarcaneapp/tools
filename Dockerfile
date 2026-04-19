@@ -56,15 +56,16 @@ RUN make allnoconfig && \
         .config && \
       printf '%s=%s\n' "${key}" "${value}" >> .config; \
     done < /tmp/busybox.config && \
-    yes "" | make oldconfig
+    yes n | make oldconfig
 
 RUN make -j"$(getconf _NPROCESSORS_ONLN)"
 
 RUN install -Dm755 busybox /out/bin/busybox && \
-    mkdir -p /out/usr/local/bin /out/tmp /out/root/.cache && \
+    mkdir -p /out/tmp /out/root/.cache && \
     ln -s /bin/busybox /out/bin/sh && \
     ln -s /bin/busybox /out/bin/sleep && \
     ln -s /bin/busybox /out/bin/find && \
+    ln -s /bin/busybox /out/bin/gzip && \
     ln -s /bin/busybox /out/bin/stat && \
     ln -s /bin/busybox /out/bin/readlink && \
     ln -s /bin/busybox /out/bin/head && \
@@ -79,8 +80,11 @@ RUN install -Dm755 busybox /out/bin/busybox && \
 
 FROM scratch
 
-COPY --from=busybox-builder /out/ /
-COPY --from=trivy-fetcher /out/ /
+COPY --from=busybox-builder /out/bin/ /bin/
+COPY --from=busybox-builder /out/tmp /tmp
+COPY --from=busybox-builder /out/root/.cache /root/.cache
+COPY --from=trivy-fetcher /out/usr/local/bin/trivy /usr/local/bin/trivy
+COPY --from=trivy-fetcher /out/etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 ENV PATH="/usr/local/bin:/bin" \
     SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt" \

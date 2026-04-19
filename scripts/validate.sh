@@ -14,7 +14,23 @@ run_check() {
 
 run_check "required helper commands are on PATH" \
   docker run --rm "$IMAGE_REF" sh -ceu '
-    command -v sh sleep find stat readlink head rm mkdir mv rmdir mktemp tar test >/dev/null
+    for helper in sh sleep find stat readlink head rm mkdir mv rmdir mktemp tar test; do
+      test -x "/bin/${helper}"
+    done
+    test -x /usr/local/bin/trivy
+  '
+
+run_check "no extra helper commands slipped into the runtime image" \
+  docker run --rm "$IMAGE_REF" sh -ceu '
+    test ! -e /bin/ln
+    if ln -s /bin/sh /tmp/link 2>/dev/null; then
+      echo "unexpected ln command is available" >&2
+      exit 1
+    fi
+    if find /tmp -type f >/dev/null 2>&1; then
+      echo "unexpected find -type support is available" >&2
+      exit 1
+    fi
   '
 
 run_check "trivy is installed at the stable path" \
@@ -24,24 +40,24 @@ run_check "trivy is installed at the stable path" \
     trivy --version >/dev/null
   '
 
-run_check "tar create and extract workflow succeeds" \
+run_check "gzip-compressed tar workflow succeeds" \
   docker run --rm "$IMAGE_REF" sh -ceu '
     mkdir -p /tmp/src /tmp/dst
     printf hello >/tmp/src/file.txt
-    tar -C /tmp/src -cf /tmp/test.tar .
-    tar -C /tmp/dst -xf /tmp/test.tar
-    test "$(head -n 1 /tmp/dst/file.txt)" = hello
+    tar -C /tmp/src -czf /tmp/test.tar.gz .
+    tar -tzf /tmp/test.tar.gz >/dev/null
+    tar -C /tmp/dst -xzf /tmp/test.tar.gz
+    test "$(head -c 5 /tmp/dst/file.txt)" = hello
   '
 
-run_check "file metadata and symlink helpers behave as expected" \
+run_check "file metadata helpers behave as expected" \
   docker run --rm "$IMAGE_REF" sh -ceu '
     mkdir -p /tmp/tree
     printf data >/tmp/tree/file.txt
-    /bin/busybox ln -s /tmp/tree/file.txt /tmp/tree/link.txt
     find /tmp/tree -maxdepth 1 >/dev/null
-    stat /tmp/tree/file.txt >/dev/null
-    test "$(readlink /tmp/tree/link.txt)" = /tmp/tree/file.txt
-    test "$(head -n 1 /tmp/tree/file.txt)" = data
+    stat -c %s /tmp/tree/file.txt >/dev/null
+    test "$(readlink /bin/sh)" = /bin/busybox
+    test "$(head -c 4 /tmp/tree/file.txt)" = data
   '
 
 run_check "tmp and cache paths are writable" \
