@@ -1,0 +1,71 @@
+# build.yaml — declarative inputs for the arcane-toolbox image build.
+# Edited by humans; consumed by the Justfile via yq (Mike Farah's Go yq, v4+).
+
+image:
+  name: ghcr.io/getarcaneapp/tools
+  local_tag: ghcr.io/getarcaneapp/tools:dev
+  ci_tag: ghcr.io/getarcaneapp/tools:ci
+
+versions:
+  alpine: "3.23"
+  trivy: "0.70.0"
+  busybox: "1.37.0"
+
+platforms:
+  validate: linux/amd64
+  publish:
+    - linux/amd64
+    - linux/386
+    - linux/arm/v7
+    - linux/arm64
+    - linux/ppc64le
+    - linux/s390x
+
+busybox:
+  # CONFIG_* keys forced to =y in the BusyBox .config. The Justfile appends
+  # =y when generating dist/busybox.config — encoding values directly here
+  # would invite YAML truthy/falsy coercion (`y` -> true).
+  config:
+    - CONFIG_STATIC
+    - CONFIG_LFS
+    - CONFIG_ASH
+    - CONFIG_SH_IS_ASH
+    - CONFIG_ASH_PRINTF
+    - CONFIG_FEATURE_FANCY_HEAD
+    - CONFIG_FEATURE_FANCY_SLEEP
+    - CONFIG_FEATURE_FIND_MAXDEPTH
+    - CONFIG_FEATURE_SEAMLESS_GZ
+    - CONFIG_FEATURE_STAT_FORMAT
+    - CONFIG_FEATURE_TAR_CREATE
+    - CONFIG_FEATURE_TAR_GNU_EXTENSIONS
+    - CONFIG_FIND
+    - CONFIG_GZIP
+    - CONFIG_HEAD
+    - CONFIG_MKDIR
+    - CONFIG_MKTEMP
+    - CONFIG_MV
+    - CONFIG_READLINK
+    - CONFIG_RM
+    - CONFIG_RMDIR
+    - CONFIG_SLEEP
+    - CONFIG_STAT
+    - CONFIG_TAR
+    - CONFIG_TEST
+
+  # Names symlinked to /bin/busybox in the final image. Also asserted by
+  # validate.sh (each must exist as /bin/<name> and be executable).
+  applets:
+    - sh
+    - sleep
+    - find
+    - gzip
+    - stat
+    - readlink
+    - head
+    - rm
+    - mkdir
+    - mv
+    - rmdir
+    - mktemp
+    - tar
+    - test

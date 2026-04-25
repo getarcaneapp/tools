@@ -3,6 +3,15 @@
 set -eu
 
 IMAGE_REF="${1:-arcane-toolbox:dev}"
+CONFIG_FILE="${CONFIG_FILE:-build.yaml}"
+
+if ! command -v yq >/dev/null 2>&1; then
+  echo "validate.sh: yq is required (github.com/mikefarah/yq v4+)" >&2
+  exit 2
+fi
+
+HELPERS="$(yq -r '.busybox.applets[]' "$CONFIG_FILE" | tr '\n' ' ')"
+export HELPERS
 
 run_check() {
   check_name="$1"
@@ -13,8 +22,8 @@ run_check() {
 }
 
 run_check "required helper commands are on PATH" \
-  docker run --rm "$IMAGE_REF" sh -ceu '
-    for helper in sh sleep find stat readlink head rm mkdir mv rmdir mktemp tar test; do
+  docker run --rm -e HELPERS "$IMAGE_REF" sh -ceu '
+    for helper in $HELPERS; do
       test -x "/bin/${helper}"
     done
     test -x /usr/local/bin/trivy

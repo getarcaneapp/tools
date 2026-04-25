@@ -13,7 +13,7 @@ RUN apk add --no-cache ca-certificates curl tar
 
 WORKDIR /work
 
-COPY checksums/trivy_0.70.0_checksums.txt /checksums/trivy_checksums.txt
+COPY checksums/trivy.txt /checksums/trivy_checksums.txt
 
 RUN case "${TARGETARCH}/${TARGETVARIANT}" in \
     amd64/*) trivy_arch='64bit' ;; \
@@ -38,8 +38,9 @@ RUN apk add --no-cache build-base bzip2 curl linux-headers perl
 
 WORKDIR /work
 
-COPY checksums/busybox-1.37.0.tar.bz2.sha256 /checksums/busybox.tar.bz2.sha256
-COPY busybox.config /tmp/busybox.config
+COPY checksums/busybox.sha256 /checksums/busybox.tar.bz2.sha256
+COPY dist/busybox.config /tmp/busybox.config
+COPY dist/applets.txt /tmp/applets.txt
 
 RUN curl -fsSLO "https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2" && \
     sha256sum -c /checksums/busybox.tar.bz2.sha256 && \
@@ -62,20 +63,10 @@ RUN make -j"$(getconf _NPROCESSORS_ONLN)"
 
 RUN install -Dm755 busybox /out/bin/busybox && \
     mkdir -p /out/tmp /out/root/.cache && \
-    ln -s /bin/busybox /out/bin/sh && \
-    ln -s /bin/busybox /out/bin/sleep && \
-    ln -s /bin/busybox /out/bin/find && \
-    ln -s /bin/busybox /out/bin/gzip && \
-    ln -s /bin/busybox /out/bin/stat && \
-    ln -s /bin/busybox /out/bin/readlink && \
-    ln -s /bin/busybox /out/bin/head && \
-    ln -s /bin/busybox /out/bin/rm && \
-    ln -s /bin/busybox /out/bin/mkdir && \
-    ln -s /bin/busybox /out/bin/mv && \
-    ln -s /bin/busybox /out/bin/rmdir && \
-    ln -s /bin/busybox /out/bin/mktemp && \
-    ln -s /bin/busybox /out/bin/tar && \
-    ln -s /bin/busybox /out/bin/test && \
+    while IFS= read -r applet; do \
+      [ -n "${applet}" ] || continue; \
+      ln -s /bin/busybox "/out/bin/${applet}"; \
+    done < /tmp/applets.txt && \
     chmod 1777 /out/tmp
 
 FROM scratch

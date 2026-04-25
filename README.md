@@ -31,4 +31,30 @@ The final image is built `FROM scratch` and contains only:
 ## Versions and provenance
 
 Pinned versions, source URLs, and checksum verification details are tracked in
-`third_party/manifest.md` and the `checksums/` directory.
+[`checksums/manifest.md`](checksums/manifest.md) (generated from `build.yaml`
+by `just prepare`) alongside the per-binary checksum files in `checksums/`.
+
+## Building
+
+The build is driven by `build.yaml` (versions, target platforms, BusyBox
+config flags, applet symlinks) and orchestrated by a `Justfile`.
+
+Prereqs:
+
+- [`just`](https://just.systems/)
+- [`yq`](https://github.com/mikefarah/yq) v4+
+- `docker` with `buildx`
+
+Common recipes:
+
+```sh
+just              # list recipes
+just versions     # print resolved values from build.yaml
+just prepare      # render dist/busybox.config and dist/applets.txt from YAML
+just build        # build image for the local platform, load as arcane-toolbox:dev
+just validate     # run runtime-contract checks against arcane-toolbox:ci
+just clean        # remove dist/
+```
+
+To bump a pinned version, edit `build.yaml` and update the matching file in
+`checksums/` (`checksums/trivy.txt` or `checksums/busybox.sha256`).

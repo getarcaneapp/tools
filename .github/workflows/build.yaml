@@ -16,10 +16,6 @@ permissions:
   packages: write
   id-token: write
 
-env:
-  IMAGE_NAME: ghcr.io/getarcaneapp/tools
-  PUBLISH_PLATFORMS: linux/amd64,linux/386,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
-
 jobs:
   validate:
     if: ${{ github.repository_owner != 'getarcaneapp' && github.actor !=
@@ -29,19 +25,23 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Install just
+        uses: extractions/setup-just@v3
+
+      - name: Install yq
+        run: |
+          sudo curl -fsSL -o /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/download/v4.45.1/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
       - name: Build validation image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          load: true
-          platforms: linux/amd64
-          tags: arcane-toolbox:ci
+        run: just build-ci
 
       - name: Validate runtime contract
-        run: ./scripts/validate.sh arcane-toolbox:ci
+        run: just validate
 
   publish:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -50,6 +50,27 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+
+      - name: Install just
+        uses: extractions/setup-just@v3
+
+      - name: Install yq
+        run: |
+          sudo curl -fsSL -o /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/download/v4.45.1/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Resolve build inputs from build.yaml
+        id: cfg
+        run: |
+          just prepare
+          {
+            echo "alpine=$(yq -r '.versions.alpine' build.yaml)"
+            echo "trivy=$(yq -r '.versions.trivy' build.yaml)"
+            echo "busybox=$(yq -r '.versions.busybox' build.yaml)"
+            echo "platforms=$(yq -r '.platforms.publish | join(",")' build.yaml)"
+            echo "image=$(yq -r '.image.name' build.yaml)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Depot CLI
         uses: depot/setup-action@v1
@@ -68,7 +89,9 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ steps.cfg.outputs.image }}
+          flavor: |
+            latest=true
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -82,30 +105,35 @@ jobs:
           project: np622krb2x
           context: .
           file: ./Dockerfile
-          platforms: ${{ env.PUBLISH_PLATFORMS }}
+          platforms: ${{ steps.cfg.outputs.platforms }}
           push: true
+          build-args: |
+            ALPINE_VERSION=${{ steps.cfg.outputs.alpine }}
+            TRIVY_VERSION=${{ steps.cfg.outputs.trivy }}
+            BUSYBOX_VERSION=${{ steps.cfg.outputs.busybox }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Sign published image
-        run: cosign sign --yes --key env://COSIGN_PRIVATE_KEY "${IMAGE_NAME}@${{
+        run: cosign sign --yes --key env://COSIGN_PRIVATE_KEY "${IMAGE}@${{
           steps.build.outputs.digest }}"
         env:
+          IMAGE: ${{ steps.cfg.outputs.image }}
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
 
       - name: Generate image digest attestation
         uses: actions/attest@v4
         with:
-          subject-name: ${{ env.IMAGE_NAME }}
+          subject-name: ${{ steps.cfg.outputs.image }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
       - name: Record published digest
         run: |
           {
-            echo "Published image: ${{ env.IMAGE_NAME }}"
-            echo "Published platforms: ${{ env.PUBLISH_PLATFORMS }}"
+            echo "Published image: ${{ steps.cfg.outputs.image }}"
+            echo "Published platforms: ${{ steps.cfg.outputs.platforms }}"
             echo "Published digest: ${{ steps.build.outputs.digest }}"
-            echo "Published attestation: ${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+            echo "Published attestation: ${{ steps.cfg.outputs.image }}@${{ steps.build.outputs.digest }}"
           } >> "$GITHUB_STEP_SUMMARY"
