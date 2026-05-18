@@ -69,3 +69,23 @@ busybox:
     - mktemp
     - tar
     - test
+
+# Trivy database mirrors. Each entry is mirrored from `source:tag` to
+# `target:tag` by .github/workflows/mirror-trivy-db.yaml on a 6h cron.
+# These DBs are architecture-independent OCI artifacts
+# Tags follow upstream Trivy's pinned major-version convention.
+mirrors:
+  - name: trivy-db
+    source: ghcr.io/aquasecurity/trivy-db
+    target: ghcr.io/getarcaneapp/trivy-db
+    tag: "2"
+
+  - name: trivy-java-db
+    source: ghcr.io/aquasecurity/trivy-java-db
+    target: ghcr.io/getarcaneapp/trivy-java-db
+    tag: "1"
+
+  - name: trivy-checks
+    source: ghcr.io/aquasecurity/trivy-checks
+    target: ghcr.io/getarcaneapp/trivy-checks
+    tag: "1"

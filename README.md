@@ -34,6 +34,35 @@ Pinned versions, source URLs, and checksum verification details are tracked in
 [`checksums/manifest.md`](checksums/manifest.md) (generated from `build.yaml`
 by `just prepare`) alongside the per-binary checksum files in `checksums/`.
 
+## Trivy database mirror
+
+This repo also mirrors the three Trivy OCI databases needed for
+[Trivy self-hosting](https://trivy.dev/docs/latest/guide/advanced/self-hosting/)
+to `ghcr.io/getarcaneapp` on a 6-hour cron:
+
+| Database | Mirror reference |
+|---|---|
+| Vulnerability DB    | `ghcr.io/getarcaneapp/trivy-db:2` |
+| Java DB             | `ghcr.io/getarcaneapp/trivy-java-db:1` |
+| Checks (misconfig)  | `ghcr.io/getarcaneapp/trivy-checks:1` |
+
+The mirror runs via
+[`.github/workflows/mirror-trivy-db.yaml`](.github/workflows/mirror-trivy-db.yaml)
+and copies upstream OCI artifacts verbatim — the mirrored digest matches
+upstream exactly. Mirror entries are declared in [`build.yaml`](build.yaml)
+under `mirrors:`. Mirrored artifacts are signed with the same cosign key as
+`ghcr.io/getarcaneapp/tools` and have GitHub provenance attestations attached.
+
+To point Trivy at the mirror:
+
+```sh
+trivy image \
+  --db-repository            ghcr.io/getarcaneapp/trivy-db:2 \
+  --java-db-repository       ghcr.io/getarcaneapp/trivy-java-db:1 \
+  --checks-bundle-repository ghcr.io/getarcaneapp/trivy-checks:1 \
+  <image>
+```
+
 ## Building
 
 The build is driven by `build.yaml` (versions, target platforms, BusyBox

@@ -1,0 +1,148 @@
+# Depot CI Migration
+# Source: .github/workflows/mirror-trivy-db.yaml
+#
+# Changes made:
+# - Changed GitHub runs-on labels to their Depot equivalents
+# - Gated jobs to run only when repository owner is getarcaneapp
+#   (mirror pushes to ghcr.io/getarcaneapp/* and would fail for forks)
+
+name: Mirror Trivy Databases
+on:
+  schedule:
+    # Every 6 hours at :15 to avoid the top-of-hour GitHub scheduler congestion.
+    # Upstream Trivy databases refresh roughly every 6h, so this stays within
+    # one refresh window of upstream.
+    - cron: "15 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Resolve digests but skip pushing"
+        required: false
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+concurrency:
+  group: mirror-trivy-db
+  cancel-in-progress: true
+jobs:
+  resolve:
+    if: github.repository_owner == 'getarcaneapp'
+    name: Resolve mirror targets
+    runs-on: depot-ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Install yq
+        run: |
+          sudo curl -fsSL -o /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/download/v4.45.1/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+      - name: Build matrix from build.yaml
+        id: matrix
+        run: |
+          matrix="$(yq -o=json -I=0 '{"include": .mirrors}' build.yaml)"
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+          printf 'Resolved matrix: %s\n' "${matrix}"
+  mirror:
+    if: github.repository_owner == 'getarcaneapp'
+    name: Mirror ${{ matrix.name }}
+    needs: resolve
+    runs-on: depot-ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.resolve.outputs.matrix) }}
+    steps:
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.2
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4.1.2
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve upstream digest
+        id: upstream
+        run: |
+          src="${{ matrix.source }}:${{ matrix.tag }}"
+          digest="$(oras resolve "${src}")"
+          echo "src=${src}" >> "$GITHUB_OUTPUT"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          printf 'Upstream %s resolved to %s\n' "${src}" "${digest}"
+      - name: Check whether mirror is already up to date
+        id: check
+        run: |
+          dst="${{ matrix.target }}:${{ matrix.tag }}"
+          if existing="$(oras resolve "${dst}" 2>/dev/null)"; then
+            echo "existing=${existing}" >> "$GITHUB_OUTPUT"
+            if [ "${existing}" = "${{ steps.upstream.outputs.digest }}" ]; then
+              echo "up_to_date=true" >> "$GITHUB_OUTPUT"
+              echo "Mirror already at ${existing}; skipping copy."
+            else
+              echo "up_to_date=false" >> "$GITHUB_OUTPUT"
+              echo "Mirror at ${existing}; upstream at ${{ steps.upstream.outputs.digest }}; will copy."
+            fi
+          else
+            echo "existing=" >> "$GITHUB_OUTPUT"
+            echo "up_to_date=false" >> "$GITHUB_OUTPUT"
+            echo "Mirror does not exist yet; will copy."
+          fi
+      - name: Copy artifact
+        id: copy
+        if: steps.check.outputs.up_to_date != 'true' && inputs.dry_run != true
+        run: |
+          oras copy \
+            --from-username "${{ github.actor }}" --from-password "${{ secrets.GITHUB_TOKEN }}" \
+            --to-username   "${{ github.actor }}" --to-password   "${{ secrets.GITHUB_TOKEN }}" \
+            "${{ steps.upstream.outputs.src }}" \
+            "${{ matrix.target }}:${{ matrix.tag }}"
+          mirrored="$(oras resolve "${{ matrix.target }}:${{ matrix.tag }}")"
+          if [ "${mirrored}" != "${{ steps.upstream.outputs.digest }}" ]; then
+            echo "::error::Mirror digest ${mirrored} != upstream ${{ steps.upstream.outputs.digest }}"
+            exit 1
+          fi
+          echo "digest=${mirrored}" >> "$GITHUB_OUTPUT"
+      - name: Sign mirrored artifact
+        if: steps.copy.outputs.digest != ''
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          cosign sign --yes --key env://COSIGN_PRIVATE_KEY \
+            "${{ matrix.target }}@${{ steps.copy.outputs.digest }}"
+      - name: Attest mirrored artifact
+        if: steps.copy.outputs.digest != ''
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ matrix.target }}
+          subject-digest: ${{ steps.copy.outputs.digest }}
+          push-to-registry: true
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### ${{ matrix.name }}"
+            echo ""
+            echo "- Source:     \`${{ steps.upstream.outputs.src }}\`"
+            echo "- Target:     \`${{ matrix.target }}:${{ matrix.tag }}\`"
+            echo "- Upstream:   \`${{ steps.upstream.outputs.digest }}\`"
+            echo "- Mirror was: \`${{ steps.check.outputs.existing }}\`"
+            if [ "${{ steps.check.outputs.up_to_date }}" = "true" ]; then
+              echo "- Result:     no-op (already in sync)"
+            elif [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "- Result:     dry-run (no push)"
+            else
+              echo "- Mirror now: \`${{ steps.copy.outputs.digest }}\`"
+              echo "- Signed:     yes (cosign)"
+              echo "- Attested:   yes (actions/attest@v4)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
