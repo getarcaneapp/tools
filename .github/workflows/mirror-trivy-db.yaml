@@ -26,7 +26,8 @@ concurrency:
 
 jobs:
   resolve:
-    if: github.repository_owner != 'getarcaneapp'
+    if: ${{ github.repository_owner != 'getarcaneapp' && github.actor !=
+      'getarcaneappbot' }}
     name: Resolve mirror targets
     runs-on: ubuntu-latest
     outputs:

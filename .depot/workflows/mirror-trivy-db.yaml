@@ -30,7 +30,6 @@ concurrency:
   cancel-in-progress: true
 jobs:
   resolve:
-    if: github.repository_owner == 'getarcaneapp'
     name: Resolve mirror targets
     runs-on: depot-ubuntu-latest
     outputs:
@@ -50,7 +49,6 @@ jobs:
           echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
           printf 'Resolved matrix: %s\n' "${matrix}"
   mirror:
-    if: github.repository_owner == 'getarcaneapp'
     name: Mirror ${{ matrix.name }}
     needs: resolve
     runs-on: depot-ubuntu-latest
