@@ -30,6 +30,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   resolve:
+    if: github.repository_owner == 'getarcaneapp'
     name: Resolve mirror targets
     runs-on: depot-ubuntu-latest
     outputs:
@@ -49,6 +50,7 @@ jobs:
           echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
           printf 'Resolved matrix: %s\n' "${matrix}"
   mirror:
+    if: github.repository_owner == 'getarcaneapp'
     name: Mirror ${{ matrix.name }}
     needs: resolve
     runs-on: depot-ubuntu-latest
@@ -74,6 +76,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to GHCR for ORAS
+        run: |
+          printf '%s' '${{ secrets.GITHUB_TOKEN }}' | oras login ghcr.io \
+            --username '${{ github.actor }}' \
+            --password-stdin
 
       - name: Resolve upstream digest
         id: upstream
@@ -108,8 +116,6 @@ jobs:
         if: steps.check.outputs.up_to_date != 'true' && inputs.dry_run != true
         run: |
           oras copy \
-            --from-username "${{ github.actor }}" --from-password "${{ secrets.GITHUB_TOKEN }}" \
-            --to-username   "${{ github.actor }}" --to-password   "${{ secrets.GITHUB_TOKEN }}" \
             "${{ steps.upstream.outputs.src }}" \
             "${{ matrix.target }}:${{ matrix.tag }}"
           mirrored="$(oras resolve "${{ matrix.target }}:${{ matrix.tag }}")"
