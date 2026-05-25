@@ -85,28 +85,9 @@ jobs:
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
           printf 'Upstream %s resolved to %s\n' "${src}" "${digest}"
 
-      - name: Check whether mirror is already up to date
-        id: check
-        run: |
-          dst="${{ matrix.target }}:${{ matrix.tag }}"
-          if existing="$(oras resolve "${dst}" 2>/dev/null)"; then
-            echo "existing=${existing}" >> "$GITHUB_OUTPUT"
-            if [ "${existing}" = "${{ steps.upstream.outputs.digest }}" ]; then
-              echo "up_to_date=true" >> "$GITHUB_OUTPUT"
-              echo "Mirror already at ${existing}; skipping copy."
-            else
-              echo "up_to_date=false" >> "$GITHUB_OUTPUT"
-              echo "Mirror at ${existing}; upstream at ${{ steps.upstream.outputs.digest }}; will copy."
-            fi
-          else
-            echo "existing=" >> "$GITHUB_OUTPUT"
-            echo "up_to_date=false" >> "$GITHUB_OUTPUT"
-            echo "Mirror does not exist yet; will copy."
-          fi
-
       - name: Copy artifact
         id: copy
-        if: steps.check.outputs.up_to_date != 'true' && inputs.dry_run != true
+        if: inputs.dry_run != true
         run: |
           oras copy \
             "${{ steps.upstream.outputs.src }}" \
@@ -144,10 +125,7 @@ jobs:
             echo "- Source:     \`${{ steps.upstream.outputs.src }}\`"
             echo "- Target:     \`${{ matrix.target }}:${{ matrix.tag }}\`"
             echo "- Upstream:   \`${{ steps.upstream.outputs.digest }}\`"
-            echo "- Mirror was: \`${{ steps.check.outputs.existing }}\`"
-            if [ "${{ steps.check.outputs.up_to_date }}" = "true" ]; then
-              echo "- Result:     no-op (already in sync)"
-            elif [ "${{ inputs.dry_run }}" = "true" ]; then
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
               echo "- Result:     dry-run (no push)"
             else
               echo "- Mirror now: \`${{ steps.copy.outputs.digest }}\`"
