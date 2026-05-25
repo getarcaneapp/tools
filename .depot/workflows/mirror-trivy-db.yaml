@@ -3,8 +3,6 @@
 #
 # Changes made:
 # - Changed GitHub runs-on labels to their Depot equivalents
-# - Gated jobs to run only when repository owner is getarcaneapp
-#   (mirror pushes to ghcr.io/getarcaneapp/* and would fail for forks)
 
 name: Mirror Trivy Databases
 on:
@@ -30,7 +28,6 @@ concurrency:
   cancel-in-progress: true
 jobs:
   resolve:
-    if: github.repository_owner == 'getarcaneapp'
     name: Resolve mirror targets
     runs-on: depot-ubuntu-latest
     outputs:
@@ -50,7 +47,6 @@ jobs:
           echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
           printf 'Resolved matrix: %s\n' "${matrix}"
   mirror:
-    if: github.repository_owner == 'getarcaneapp'
     name: Mirror ${{ matrix.name }}
     needs: resolve
     runs-on: depot-ubuntu-latest
