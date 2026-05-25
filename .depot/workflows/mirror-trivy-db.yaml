@@ -58,18 +58,20 @@ jobs:
     steps:
       - name: Install oras
         uses: oras-project/setup-oras@v2
-        with:
-          version: 1.3.2
+
       - name: Install envsubst
         run: sudo apt-get update && sudo apt-get install -y gettext-base
+
       - name: Install cosign
         uses: sigstore/cosign-installer@v4.1.2
+
       - name: Log in to GHCR
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Resolve upstream digest
         id: upstream
         run: |
@@ -78,6 +80,7 @@ jobs:
           echo "src=${src}" >> "$GITHUB_OUTPUT"
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
           printf 'Upstream %s resolved to %s\n' "${src}" "${digest}"
+
       - name: Check whether mirror is already up to date
         id: check
         run: |
@@ -96,6 +99,7 @@ jobs:
             echo "up_to_date=false" >> "$GITHUB_OUTPUT"
             echo "Mirror does not exist yet; will copy."
           fi
+
       - name: Copy artifact
         id: copy
         if: steps.check.outputs.up_to_date != 'true' && inputs.dry_run != true
@@ -111,6 +115,7 @@ jobs:
             exit 1
           fi
           echo "digest=${mirrored}" >> "$GITHUB_OUTPUT"
+
       - name: Sign mirrored artifact
         if: steps.copy.outputs.digest != ''
         env:
