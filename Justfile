@@ -84,5 +84,13 @@ publish tags: prepare
         --push \
         .
 
+# Mirror Trivy databases to ghcr.io/getarcaneapp. Prereq: oras, docker login to ghcr.io.
+mirror:
+    ./scripts/mirror.sh
+
+# Dry-run mirror: resolve digests only, no push.
+mirror-dry:
+    DRY_RUN=1 ./scripts/mirror.sh
+
 clean:
     rm -rf dist
