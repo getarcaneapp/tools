@@ -67,6 +67,8 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: Set up Depot CLI
         uses: depot/setup-action@v1
+      - name: Install envsubst
+        run: sudo apt-get update && sudo apt-get install -y gettext-base
       - name: Install cosign
         uses: sigstore/cosign-installer@v4.1.1
       - name: Log in to GHCR
