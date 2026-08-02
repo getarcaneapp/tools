@@ -34,8 +34,8 @@ jobs:
             https://github.com/mikefarah/yq/releases/download/v4.45.1/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Depot CLI
+        uses: depot/setup-action@v1
 
       - name: Build validation image
         run: just build-ci

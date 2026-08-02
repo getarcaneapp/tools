@@ -1,5 +1,5 @@
 # Justfile — orchestrates the arcane-toolbox build from build.yaml.
-# Prereqs: just, yq (github.com/mikefarah/yq, v4+), docker (with buildx).
+# Prereqs: just, yq (github.com/mikefarah/yq, v4+), docker, depot.
 
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
@@ -15,6 +15,7 @@ local_tag       := `yq -r '.image.local_tag'  build.yaml`
 ci_tag          := `yq -r '.image.ci_tag'     build.yaml`
 validate_plat   := `yq -r '.platforms.validate' build.yaml`
 publish_plats   := `yq -r '.platforms.publish | join(",")' build.yaml`
+depot_project   := "np622krb2x"
 
 default: list
 
@@ -47,9 +48,11 @@ manifest:
         '{{alpine_version}}' \
         > checksums/manifest.md
 
-# Build for the validate platform, load into local docker as local_tag.
+# Build on Depot for the validate platform, then load into local Docker.
+# The shared Depot project preserves Docker layers and BuildKit cache mounts.
 build: prepare
-    docker buildx build \
+    depot build \
+        --project {{depot_project}} \
         --load \
         --platform {{validate_plat}} \
         --build-arg ALPINE_VERSION={{alpine_version}} \
@@ -62,7 +65,8 @@ build: prepare
 # Build the CI validation image. Tag is parameterized so the workflow can
 # pass arcane-toolbox:ci explicitly.
 build-ci tag=ci_tag: prepare
-    docker buildx build \
+    depot build \
+        --project {{depot_project}} \
         --load \
         --platform {{validate_plat}} \
         --build-arg ALPINE_VERSION={{alpine_version}} \
@@ -80,7 +84,7 @@ validate tag=ci_tag:
 # CI uses depot/build-push-action so it can hand the digest to cosign/attest.
 publish tags: prepare
     depot build \
-        --project np622krb2x \
+        --project {{depot_project}} \
         --platform {{publish_plats}} \
         --build-arg ALPINE_VERSION={{alpine_version}} \
         --build-arg TRIVY_VERSION={{trivy_version}} \

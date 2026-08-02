@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 ARG ALPINE_VERSION=3.23
-ARG TRIVY_VERSION=0.70.0
+ARG TRIVY_VERSION=0.72.0
 ARG BUSYBOX_VERSION=1.37.0
 ARG RUSTIC_VERSION=0.11.2
 
@@ -71,13 +71,23 @@ RUN install -Dm755 busybox /out/bin/busybox && \
     chmod 1777 /out/tmp
 
 FROM --platform=$TARGETPLATFORM alpine:${ALPINE_VERSION} AS rustic-builder
+ARG TARGETARCH
+ARG TARGETVARIANT
 ARG RUSTIC_VERSION
 
-RUN apk add --no-cache build-base cargo musl-dev rust
+RUN apk add --no-cache build-base cargo musl-dev rust sccache
 
-ENV CARGO_HOME=/cargo
+ENV CARGO_HOME=/cargo \
+    CARGO_TARGET_DIR=/cargo/target \
+    RUSTC_WRAPPER=sccache \
+    SCCACHE_DIR=/sccache
 
-RUN cargo install --locked --version "${RUSTIC_VERSION}" --root /out rustic-rs && \
+RUN --mount=type=cache,id=rustic-registry-${TARGETARCH}-${TARGETVARIANT},target=/cargo/registry,sharing=locked \
+    --mount=type=cache,id=rustic-git-${TARGETARCH}-${TARGETVARIANT},target=/cargo/git,sharing=locked \
+    --mount=type=cache,id=rustic-target-${TARGETARCH}-${TARGETVARIANT},target=/cargo/target,sharing=locked \
+    --mount=type=cache,id=rustic-sccache-${TARGETARCH}-${TARGETVARIANT},target=/sccache,sharing=locked \
+    cargo install --locked --version "${RUSTIC_VERSION}" --root /out rustic-rs && \
+    sccache --show-stats && \
     strip /out/bin/rustic && \
     mkdir -p /out/lib /out/usr/lib && \
     cp /lib/ld-musl-*.so.1 /out/lib/ && \
