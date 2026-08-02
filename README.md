@@ -47,12 +47,14 @@ to `ghcr.io/getarcaneapp` on a 6-hour cron:
 | Java DB             | `ghcr.io/getarcaneapp/trivy-java-db:1` |
 | Checks (misconfig)  | `ghcr.io/getarcaneapp/trivy-checks:1` |
 
-The mirror runs via
-[`.github/workflows/mirror-trivy-db.yaml`](.github/workflows/mirror-trivy-db.yaml)
-and copies upstream OCI artifacts verbatim — the mirrored digest matches
-upstream exactly. Mirror entries are declared in [`build.yaml`](build.yaml)
-under `mirrors:`. Mirrored artifacts are signed with the same cosign key as
-`ghcr.io/getarcaneapp/tools` and have GitHub provenance attestations attached.
+The canonical mirror workflow is
+[`.depot/workflows/mirror-trivy-db.yaml`](.depot/workflows/mirror-trivy-db.yaml),
+with a GitHub Actions mirror at
+[`.github/workflows/mirror-trivy-db.yaml`](.github/workflows/mirror-trivy-db.yaml).
+It copies upstream OCI artifacts verbatim — the mirrored digest matches upstream
+exactly. Mirror entries are declared in [`build.yaml`](build.yaml) under
+`mirrors:`. Mirrored artifacts are signed with the same cosign key as
+`ghcr.io/getarcaneapp/tools` and have provenance attestations attached.
 
 To point Trivy at the mirror:
 
@@ -73,7 +75,8 @@ Prereqs:
 
 - [`just`](https://just.systems/)
 - [`yq`](https://github.com/mikefarah/yq) v4+
-- `docker` with `buildx`
+- `docker`
+- [`depot`](https://depot.dev/docs/cli/installation)
 
 Common recipes:
 
