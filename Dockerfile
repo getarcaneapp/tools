@@ -3,6 +3,7 @@
 ARG ALPINE_VERSION=3.23
 ARG TRIVY_VERSION=0.70.0
 ARG BUSYBOX_VERSION=1.37.0
+ARG RUSTIC_VERSION=0.11.2
 
 FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS trivy-fetcher
 ARG TARGETARCH
@@ -69,12 +70,28 @@ RUN install -Dm755 busybox /out/bin/busybox && \
     done < /tmp/applets.txt && \
     chmod 1777 /out/tmp
 
+FROM --platform=$TARGETPLATFORM alpine:${ALPINE_VERSION} AS rustic-builder
+ARG RUSTIC_VERSION
+
+RUN apk add --no-cache build-base cargo musl-dev rust
+
+ENV CARGO_HOME=/cargo
+
+RUN cargo install --locked --version "${RUSTIC_VERSION}" --root /out rustic-rs && \
+    strip /out/bin/rustic && \
+    mkdir -p /out/lib /out/usr/lib && \
+    cp /lib/ld-musl-*.so.1 /out/lib/ && \
+    cp /usr/lib/libgcc_s.so.1 /out/usr/lib/
+
 FROM scratch
 
 COPY --from=busybox-builder /out/bin/ /bin/
 COPY --from=busybox-builder /out/tmp /tmp
 COPY --from=busybox-builder /out/root/.cache /root/.cache
 COPY --from=trivy-fetcher /out/usr/local/bin/trivy /usr/local/bin/trivy
+COPY --from=rustic-builder /out/bin/rustic /usr/local/bin/rustic
+COPY --from=rustic-builder /out/lib/ /lib/
+COPY --from=rustic-builder /out/usr/lib/ /usr/lib/
 COPY --from=trivy-fetcher /out/etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 ENV PATH="/usr/local/bin:/bin" \

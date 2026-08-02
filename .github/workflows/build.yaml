@@ -68,6 +68,7 @@ jobs:
             echo "alpine=$(yq -r '.versions.alpine' build.yaml)"
             echo "trivy=$(yq -r '.versions.trivy' build.yaml)"
             echo "busybox=$(yq -r '.versions.busybox' build.yaml)"
+            echo "rustic=$(yq -r '.versions.rustic' build.yaml)"
             echo "platforms=$(yq -r '.platforms.publish | join(",")' build.yaml)"
             echo "image=$(yq -r '.image.name' build.yaml)"
           } >> "$GITHUB_OUTPUT"
@@ -111,6 +112,7 @@ jobs:
             ALPINE_VERSION=${{ steps.cfg.outputs.alpine }}
             TRIVY_VERSION=${{ steps.cfg.outputs.trivy }}
             BUSYBOX_VERSION=${{ steps.cfg.outputs.busybox }}
+            RUSTIC_VERSION=${{ steps.cfg.outputs.rustic }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 

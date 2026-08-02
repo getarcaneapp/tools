@@ -9,6 +9,7 @@ config := "build.yaml"
 alpine_version  := `yq -r '.versions.alpine'  build.yaml`
 trivy_version   := `yq -r '.versions.trivy'   build.yaml`
 busybox_version := `yq -r '.versions.busybox' build.yaml`
+rustic_version  := `yq -r '.versions.rustic'  build.yaml`
 image_name      := `yq -r '.image.name'       build.yaml`
 local_tag       := `yq -r '.image.local_tag'  build.yaml`
 ci_tag          := `yq -r '.image.ci_tag'     build.yaml`
@@ -24,6 +25,7 @@ versions:
     @echo "alpine:    {{alpine_version}}"
     @echo "trivy:     {{trivy_version}}"
     @echo "busybox:   {{busybox_version}}"
+    @echo "rustic:    {{rustic_version}}"
     @echo "image:     {{image_name}}"
     @echo "local_tag: {{local_tag}}"
     @echo "ci_tag:    {{ci_tag}}"
@@ -38,9 +40,10 @@ prepare: manifest
 
 # Regenerate checksums/manifest.md from build.yaml.
 manifest:
-    @printf '# Third-Party Manifest\n\nGenerated from `build.yaml`; run `just prepare` to regenerate.\n\nThird-party binaries shipped in the final runtime image.\n\n| Binary | Version | Source | Checksum | License |\n|---|---|---|---|---|\n| Trivy | %s | <https://github.com/aquasecurity/trivy/releases/tag/v%s> | [trivy.txt](trivy.txt) | Apache-2.0 |\n| BusyBox | %s | <https://busybox.net/downloads/busybox-%s.tar.bz2> | [busybox.sha256](busybox.sha256) | GPL-2.0-only |\n\nThe CA certificate bundle is copied from Alpine %s during the build and is not\ntreated as a separately versioned executable binary.\n' \
+    @printf '# Third-Party Manifest\n\nGenerated from `build.yaml`; run `just prepare` to regenerate.\n\nThird-party binaries shipped in the final runtime image.\n\n| Binary | Version | Source | Integrity | License |\n|---|---|---|---|---|\n| Trivy | %s | <https://github.com/aquasecurity/trivy/releases/tag/v%s> | [trivy.txt](trivy.txt) | Apache-2.0 |\n| BusyBox | %s | <https://busybox.net/downloads/busybox-%s.tar.bz2> | [busybox.sha256](busybox.sha256) | GPL-2.0-only |\n| Rustic | %s | <https://crates.io/crates/rustic-rs/%s> | Cargo registry checksum and locked dependencies | Apache-2.0 OR MIT |\n\nThe CA certificate bundle is copied from Alpine %s during the build and is not\ntreated as a separately versioned executable binary.\n' \
         '{{trivy_version}}' '{{trivy_version}}' \
         '{{busybox_version}}' '{{busybox_version}}' \
+        '{{rustic_version}}' '{{rustic_version}}' \
         '{{alpine_version}}' \
         > checksums/manifest.md
 
@@ -52,6 +55,7 @@ build: prepare
         --build-arg ALPINE_VERSION={{alpine_version}} \
         --build-arg TRIVY_VERSION={{trivy_version}} \
         --build-arg BUSYBOX_VERSION={{busybox_version}} \
+        --build-arg RUSTIC_VERSION={{rustic_version}} \
         -t {{local_tag}} \
         .
 
@@ -64,6 +68,7 @@ build-ci tag=ci_tag: prepare
         --build-arg ALPINE_VERSION={{alpine_version}} \
         --build-arg TRIVY_VERSION={{trivy_version}} \
         --build-arg BUSYBOX_VERSION={{busybox_version}} \
+        --build-arg RUSTIC_VERSION={{rustic_version}} \
         -t {{tag}} \
         .
 
@@ -80,6 +85,7 @@ publish tags: prepare
         --build-arg ALPINE_VERSION={{alpine_version}} \
         --build-arg TRIVY_VERSION={{trivy_version}} \
         --build-arg BUSYBOX_VERSION={{busybox_version}} \
+        --build-arg RUSTIC_VERSION={{rustic_version}} \
         $(printf -- '--tag %s ' {{tags}}) \
         --push \
         .

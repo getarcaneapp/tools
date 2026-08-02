@@ -27,6 +27,7 @@ run_check "required helper commands are on PATH" \
       test -x "/bin/${helper}"
     done
     test -x /usr/local/bin/trivy
+    test -x /usr/local/bin/rustic
   '
 
 run_check "no extra helper commands slipped into the runtime image" \
@@ -47,6 +48,13 @@ run_check "trivy is installed at the stable path" \
     test -x /usr/local/bin/trivy
     /usr/local/bin/trivy --version >/dev/null
     trivy --version >/dev/null
+  '
+
+run_check "rustic is installed at the stable path" \
+  docker run --rm "$IMAGE_REF" sh -ceu '
+    test -x /usr/local/bin/rustic
+    /usr/local/bin/rustic --version >/dev/null
+    rustic --version >/dev/null
   '
 
 run_check "gzip-compressed tar workflow succeeds" \

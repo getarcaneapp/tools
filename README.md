@@ -7,6 +7,7 @@ Minimal runtime toolbox image for Arcane volume browsing, security scans and oth
 The final image is built `FROM scratch` and contains only:
 
 - `trivy` (installed at `/usr/local/bin/trivy`)
+- `rustic` (installed at `/usr/local/bin/rustic`) for Arcane backup and restore operations
 - A statically linked BusyBox binary at `/bin/busybox`
 - A curated set of BusyBox applets exposed as standalone commands in `/bin`:
   - `sh`
@@ -85,5 +86,7 @@ just validate     # run runtime-contract checks against arcane-toolbox:ci
 just clean        # remove dist/
 ```
 
-To bump a pinned version, edit `build.yaml` and update the matching file in
-`checksums/` (`checksums/trivy.txt` or `checksums/busybox.sha256`).
+To bump a pinned version, edit `build.yaml`. Update the matching file in
+`checksums/` for downloaded release artifacts (`checksums/trivy.txt` or
+`checksums/busybox.sha256`). Rustic is compiled from the pinned crates.io
+package with Cargo's registry checksum verification and its published lockfile.
