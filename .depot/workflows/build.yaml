@@ -18,7 +18,6 @@ permissions:
 jobs:
   validate:
     if: ${{ !startsWith(github.ref, 'refs/tags/') &&
-      github.repository_owner != 'getarcaneapp' &&
       github.actor != 'getarcaneappbot' }}
     runs-on: depot-ubuntu-24.04-32
     steps:

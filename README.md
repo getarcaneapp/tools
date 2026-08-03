@@ -70,6 +70,8 @@ trivy image \
 
 The build is driven by `build.yaml` (versions, target platforms, BusyBox
 config flags, applet symlinks) and orchestrated by a `Justfile`.
+The canonical CI workflow is [`.depot/workflows/build.yaml`](.depot/workflows/build.yaml),
+with a GitHub Actions mirror at [`.github/workflows/build.yaml`](.github/workflows/build.yaml).
 
 Prereqs:
 
@@ -91,5 +93,6 @@ just clean        # remove dist/
 
 To bump a pinned version, edit `build.yaml`. Update the matching file in
 `checksums/` for downloaded release artifacts (`checksums/trivy.txt` or
-`checksums/busybox.sha256`). Rustic is compiled from the pinned crates.io
-package with Cargo's registry checksum verification and its published lockfile.
+`checksums/busybox.sha256`). Rustic uses SHA-256-pinned upstream static musl
+release binaries on amd64/arm64 and falls back to the pinned crates.io package
+and published lockfile on other architectures.

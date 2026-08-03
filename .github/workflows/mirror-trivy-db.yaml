@@ -58,6 +58,9 @@ jobs:
       - name: Install oras
         uses: oras-project/setup-oras@v2
 
+      - name: Install envsubst
+        run: sudo apt-get update && sudo apt-get install -y gettext-base
+
       - name: Install cosign
         uses: sigstore/cosign-installer@v4.1.2
 

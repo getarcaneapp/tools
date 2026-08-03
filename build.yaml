@@ -72,7 +72,7 @@ busybox:
     - test
 
 # Trivy database mirrors. Each entry is mirrored from `source:tag` to
-# `target:tag` by .github/workflows/mirror-trivy-db.yaml on a 6h cron.
+# `target:tag` by .depot/workflows/mirror-trivy-db.yaml on a 6h cron.
 # These DBs are architecture-independent OCI artifacts
 # Tags follow upstream Trivy's pinned major-version convention.
 mirrors:

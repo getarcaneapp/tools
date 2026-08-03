@@ -75,23 +75,67 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 ARG RUSTIC_VERSION
 
-RUN apk add --no-cache build-base cargo musl-dev rust sccache
+RUN case "${TARGETARCH}" in \
+      amd64|arm64) apk add --no-cache ca-certificates curl tar ;; \
+      arm) apk add --no-cache build-base cargo mold musl-dev rust ;; \
+      ppc64le|s390x) apk add --no-cache build-base cargo mimalloc2 mold musl-dev rust ;; \
+      *) apk add --no-cache build-base cargo musl-dev rust ;; \
+    esac
 
 ENV CARGO_HOME=/cargo \
     CARGO_TARGET_DIR=/cargo/target \
-    RUSTC_WRAPPER=sccache \
-    SCCACHE_DIR=/sccache
+    CARGO_PROFILE_RELEASE_LTO=thin \
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
 
+# Rustic publishes static musl binaries for amd64 and arm64. Other release
+# architectures are either absent or glibc-linked, so those retain a source
+# build. Depot persists the Cargo cache mounts for those fallback builds.
+# The final binary link is handled directly because sccache cannot cache it.
+# Alpine's Scudo-linked Rust tools abort under QEMU, so preload mimalloc for the
+# emulated ppc64le/s390x builds. Disable LTO and use mold on every emulated
+# architecture to keep final links inside the publish job timeout. arm/v7,
+# ppc64le, and s390x also use light release optimization because full
+# optimization exceeds that limit under emulation.
 RUN --mount=type=cache,id=rustic-registry-${TARGETARCH}-${TARGETVARIANT},target=/cargo/registry,sharing=locked \
     --mount=type=cache,id=rustic-git-${TARGETARCH}-${TARGETVARIANT},target=/cargo/git,sharing=locked \
     --mount=type=cache,id=rustic-target-${TARGETARCH}-${TARGETVARIANT},target=/cargo/target,sharing=locked \
-    --mount=type=cache,id=rustic-sccache-${TARGETARCH}-${TARGETVARIANT},target=/sccache,sharing=locked \
-    cargo install --locked --version "${RUSTIC_VERSION}" --root /out rustic-rs && \
-    sccache --show-stats && \
-    strip /out/bin/rustic && \
     mkdir -p /out/lib /out/usr/lib && \
-    cp /lib/ld-musl-*.so.1 /out/lib/ && \
-    cp /usr/lib/libgcc_s.so.1 /out/usr/lib/
+    case "${TARGETARCH}" in \
+      amd64) \
+        rustic_target='x86_64-unknown-linux-musl'; \
+        rustic_sha256='ff5954015236b21d121d43c6a9d690c21613c0a1ea42a767604ba17eec266bd3' \
+        ;; \
+      arm64) \
+        rustic_target='aarch64-unknown-linux-musl'; \
+        rustic_sha256='05e9cb88075f62e6cbed304133d4f54f268a38e7d25a5a6844ee366ac87e87ce' \
+        ;; \
+      *) \
+        rustic_target=''; \
+        rustic_sha256='' \
+        ;; \
+    esac && \
+    if [ -n "${rustic_target}" ]; then \
+      rustic_file="rustic-v${RUSTIC_VERSION}-${rustic_target}.tar.gz"; \
+      curl -fsSLO "https://github.com/rustic-rs/rustic/releases/download/v${RUSTIC_VERSION}/${rustic_file}"; \
+      printf '%s  %s\n' "${rustic_sha256}" "${rustic_file}" | sha256sum -c -; \
+      tar -xzf "${rustic_file}" rustic; \
+      install -Dm755 rustic /out/bin/rustic; \
+    else \
+      if [ "${TARGETARCH}" = 'ppc64le' ] || [ "${TARGETARCH}" = 's390x' ]; then \
+        export LD_PRELOAD=/usr/lib/libmimalloc.so.2; \
+      fi; \
+      if [ "${TARGETARCH}" = 'arm' ] || [ "${TARGETARCH}" = 'ppc64le' ] || [ "${TARGETARCH}" = 's390x' ]; then \
+        export CARGO_PROFILE_RELEASE_LTO=false; \
+        export RUSTFLAGS='-C link-arg=-fuse-ld=mold'; \
+      fi; \
+      if [ "${TARGETARCH}" = 'arm' ] || [ "${TARGETARCH}" = 'ppc64le' ] || [ "${TARGETARCH}" = 's390x' ]; then \
+        export CARGO_PROFILE_RELEASE_OPT_LEVEL=1; \
+      fi; \
+      cargo install --locked --version "${RUSTIC_VERSION}" --root /out rustic-rs; \
+      strip /out/bin/rustic; \
+      cp /lib/ld-musl-*.so.1 /out/lib/; \
+      cp /usr/lib/libgcc_s.so.1 /out/usr/lib/; \
+    fi
 
 FROM scratch
 
