@@ -87,8 +87,8 @@ just update       # update all versions, checksums, and the generated manifest
 just clean        # remove dist/
 ```
 
-`scripts/update-versions.sh` updates every pinned version by default. Pass one
-or more component names (`alpine`, `trivy`, or `busybox`) to update only those
-inputs, for example `./scripts/update-versions.sh trivy`. Trivy and BusyBox
-checksums are refreshed from their official upstream release files; Alpine is
-consumed as a container base image and has no local checksum file.
+`just update` updates every pinned version by default. Pass one or more
+component names (`alpine`, `trivy`, or `busybox`) to update only those inputs,
+for example `just update trivy`. Trivy and BusyBox checksums are refreshed from
+their official upstream release files; Alpine is consumed as a container base
+image and has no local checksum file.
