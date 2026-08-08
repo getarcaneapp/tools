@@ -7,9 +7,9 @@ image:
   ci_tag: ghcr.io/getarcaneapp/tools:ci
 
 versions:
-  alpine: "3.23"
-  trivy: "0.71.0"
-  busybox: "1.37.0"
+  alpine: "3.24"
+  trivy: "0.73.0"
+  busybox: "1.38.0"
 
 platforms:
   validate: linux/amd64

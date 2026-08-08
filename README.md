@@ -82,8 +82,13 @@ just versions     # print resolved values from build.yaml
 just prepare      # render dist/busybox.config and dist/applets.txt from YAML
 just build        # build image for the local platform, load as arcane-toolbox:dev
 just validate     # run runtime-contract checks against arcane-toolbox:ci
+just update-dry   # show the latest upstream versions without changing files
+just update       # update all versions, checksums, and the generated manifest
 just clean        # remove dist/
 ```
 
-To bump a pinned version, edit `build.yaml` and update the matching file in
-`checksums/` (`checksums/trivy.txt` or `checksums/busybox.sha256`).
+`scripts/update-versions.sh` updates every pinned version by default. Pass one
+or more component names (`alpine`, `trivy`, or `busybox`) to update only those
+inputs, for example `./scripts/update-versions.sh trivy`. Trivy and BusyBox
+checksums are refreshed from their official upstream release files; Alpine is
+consumed as a container base image and has no local checksum file.

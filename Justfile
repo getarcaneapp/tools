@@ -92,5 +92,13 @@ mirror:
 mirror-dry:
     DRY_RUN=1 ./scripts/mirror.sh
 
+# Resolve and update all pinned build inputs and binary checksums.
+update:
+    ./scripts/update-versions.sh
+
+# Show the latest upstream versions without changing files.
+update-dry:
+    ./scripts/update-versions.sh --dry-run
+
 clean:
     rm -rf dist
