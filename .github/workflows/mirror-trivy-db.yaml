@@ -108,7 +108,7 @@ jobs:
 
       - name: Attest mirrored artifact
         if: steps.copy.outputs.digest != ''
-        uses: actions/attest@v4.2.0
+        uses: actions/attest@v4.2.2
         with:
           subject-name: ${{ matrix.target }}
           subject-digest: ${{ steps.copy.outputs.digest }}

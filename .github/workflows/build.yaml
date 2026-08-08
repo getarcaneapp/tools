@@ -123,7 +123,7 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
 
       - name: Generate image digest attestation
-        uses: actions/attest@v4.2.0
+        uses: actions/attest@v4.2.2
         with:
           subject-name: ${{ steps.cfg.outputs.image }}
           subject-digest: ${{ steps.build.outputs.digest }}
