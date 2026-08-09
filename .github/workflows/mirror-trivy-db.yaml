@@ -27,6 +27,8 @@ concurrency:
 jobs:
   resolve:
     name: Resolve mirror targets
+    if: ${{ github.repository_owner != 'getarcaneapp' && github.actor !=
+      'getarcaneappbot' }}
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -49,6 +51,8 @@ jobs:
 
   mirror:
     name: Mirror ${{ matrix.name }}
+    if: ${{ github.repository_owner != 'getarcaneapp' && github.actor !=
+      'getarcaneappbot' }}
     needs: resolve
     runs-on: ubuntu-latest
     strategy:
