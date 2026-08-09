@@ -18,8 +18,6 @@ permissions:
   packages: write
 jobs:
   validate:
-    if: ${{ github.repository_owner != 'getarcaneapp' && github.actor !=
-      'getarcaneappbot' }}
     runs-on: depot-ubuntu-latest
     steps:
       - name: Check out repository
@@ -33,10 +31,37 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
       - name: Set up Depot CLI
         uses: depot/setup-action@v1
+      - name: Resolve validation inputs from build.yaml
+        id: cfg
+        run: |
+          just prepare
+          {
+            echo "alpine=$(yq -r '.versions.alpine' build.yaml)"
+            echo "trivy=$(yq -r '.versions.trivy' build.yaml)"
+            echo "busybox=$(yq -r '.versions.busybox' build.yaml)"
+            echo "go=$(yq -r '.versions.go' build.yaml)"
+            echo "acfs=$(yq -r '.versions.acfs' build.yaml)"
+            echo "platform=$(yq -r '.platforms.validate' build.yaml)"
+            echo "tag=$(yq -r '.image.ci_tag' build.yaml)"
+          } >> "$GITHUB_OUTPUT"
       - name: Build validation image
-        run: just build-ci
+        uses: depot/build-push-action@v1
+        with:
+          project: np622krb2x
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ steps.cfg.outputs.platform }}
+          load: true
+          push: false
+          tags: ${{ steps.cfg.outputs.tag }}
+          build-args: |
+            ALPINE_VERSION=${{ steps.cfg.outputs.alpine }}
+            TRIVY_VERSION=${{ steps.cfg.outputs.trivy }}
+            BUSYBOX_VERSION=${{ steps.cfg.outputs.busybox }}
+            GO_VERSION=${{ steps.cfg.outputs.go }}
+            ACFS_VERSION=${{ steps.cfg.outputs.acfs }}
       - name: Validate runtime contract
-        run: just validate
+        run: just validate "${{ steps.cfg.outputs.tag }}"
   publish:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: validate
@@ -59,6 +84,8 @@ jobs:
             echo "alpine=$(yq -r '.versions.alpine' build.yaml)"
             echo "trivy=$(yq -r '.versions.trivy' build.yaml)"
             echo "busybox=$(yq -r '.versions.busybox' build.yaml)"
+            echo "go=$(yq -r '.versions.go' build.yaml)"
+            echo "acfs=$(yq -r '.versions.acfs' build.yaml)"
             echo "platforms=$(yq -r '.platforms.publish | join(",")' build.yaml)"
             echo "image=$(yq -r '.image.name' build.yaml)"
           } >> "$GITHUB_OUTPUT"
@@ -99,6 +126,8 @@ jobs:
             ALPINE_VERSION=${{ steps.cfg.outputs.alpine }}
             TRIVY_VERSION=${{ steps.cfg.outputs.trivy }}
             BUSYBOX_VERSION=${{ steps.cfg.outputs.busybox }}
+            GO_VERSION=${{ steps.cfg.outputs.go }}
+            ACFS_VERSION=${{ steps.cfg.outputs.acfs }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           provenance: true

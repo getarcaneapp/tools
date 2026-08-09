@@ -3,6 +3,33 @@
 ARG ALPINE_VERSION=3.24
 ARG TRIVY_VERSION=0.73.0
 ARG BUSYBOX_VERSION=1.38.0
+ARG GO_VERSION=1.26.5
+ARG ACFS_VERSION=0.1.0
+
+FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS acfs-fetcher
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG ACFS_VERSION
+
+RUN apk add --no-cache ca-certificates curl
+
+WORKDIR /work
+
+RUN case "${TARGETARCH}/${TARGETVARIANT}" in \
+    amd64/*) acfs_arch='amd64' ;; \
+    386/*) acfs_arch='386' ;; \
+    arm64/*) acfs_arch='arm64' ;; \
+    arm/v7) acfs_arch='armv7' ;; \
+    ppc64le/*) acfs_arch='ppc64le' ;; \
+    s390x/*) acfs_arch='s390x' ;; \
+    *) echo "unsupported TARGETARCH/TARGETVARIANT: ${TARGETARCH}/${TARGETVARIANT}" >&2; exit 1 ;; \
+    esac && \
+    acfs_file="acfs_linux_${acfs_arch}" && \
+    release_url="https://github.com/getarcaneapp/acfs/releases/download/v${ACFS_VERSION}" && \
+    curl -fsSLO "${release_url}/${acfs_file}" && \
+    curl -fsSL "${release_url}/acfs_checksums.txt" -o acfs_checksums.txt && \
+    grep "  ${acfs_file}$" acfs_checksums.txt | sha256sum -c - && \
+    install -Dm755 "${acfs_file}" /out/usr/local/bin/acfs
 
 FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS trivy-fetcher
 ARG TARGETARCH
@@ -69,13 +96,10 @@ RUN install -Dm755 busybox /out/bin/busybox && \
     done < /tmp/applets.txt && \
     chmod 1777 /out/tmp
 
-FROM scratch
-
+FROM scratch AS busybox-runtime
 COPY --from=busybox-builder /out/bin/ /bin/
 COPY --from=busybox-builder /out/tmp /tmp
 COPY --from=busybox-builder /out/root/.cache /root/.cache
-COPY --from=trivy-fetcher /out/usr/local/bin/trivy /usr/local/bin/trivy
-COPY --from=trivy-fetcher /out/etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 ENV PATH="/usr/local/bin:/bin" \
     SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt" \
@@ -83,3 +107,15 @@ ENV PATH="/usr/local/bin:/bin" \
     XDG_CACHE_HOME="/root/.cache"
 
 ENTRYPOINT []
+
+FROM busybox-runtime
+
+ARG GO_VERSION
+ARG ACFS_VERSION
+
+LABEL app.getarcane.tools.acfs.version="${ACFS_VERSION}" \
+    app.getarcane.tools.acfs.go-version="${GO_VERSION}"
+
+COPY --from=trivy-fetcher /out/usr/local/bin/trivy /usr/local/bin/trivy
+COPY --from=trivy-fetcher /out/etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=acfs-fetcher /out/usr/local/bin/acfs /usr/local/bin/acfs

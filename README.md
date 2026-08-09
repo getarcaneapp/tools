@@ -7,6 +7,8 @@ Minimal runtime toolbox image for Arcane volume browsing, security scans and oth
 The final image is built `FROM scratch` and contains only:
 
 - `trivy` (installed at `/usr/local/bin/trivy`)
+- The first-party `acfs` binary (installed at `/usr/local/bin/acfs`)
+  for root-confined listing, walking, metadata, and streaming filesystem I/O
 - A statically linked BusyBox binary at `/bin/busybox`
 - A curated set of BusyBox applets exposed as standalone commands in `/bin`:
   - `sh`
@@ -33,6 +35,8 @@ The final image is built `FROM scratch` and contains only:
 Pinned versions, source URLs, and checksum verification details are tracked in
 [`checksums/manifest.md`](checksums/manifest.md) (generated from `build.yaml`
 by `just prepare`) alongside the per-binary checksum files in `checksums/`.
+`acfs` is pinned to an ACFS module release and verified against the
+checksum manifest generated for that release by GoReleaser.
 
 ## Trivy database mirror
 
@@ -81,6 +85,7 @@ just              # list recipes
 just versions     # print resolved values from build.yaml
 just prepare      # render dist/busybox.config and dist/applets.txt from YAML
 just build        # build image for the local platform, load as arcane-toolbox:dev
+just build-multi  # validate all published architectures without loading or pushing
 just validate     # run runtime-contract checks against arcane-toolbox:ci
 just update-dry   # show the latest upstream versions without changing files
 just update       # update all versions, checksums, and the generated manifest

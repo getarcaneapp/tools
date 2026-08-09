@@ -9,6 +9,8 @@ config := "build.yaml"
 alpine_version  := `yq -r '.versions.alpine'  build.yaml`
 trivy_version   := `yq -r '.versions.trivy'   build.yaml`
 busybox_version := `yq -r '.versions.busybox' build.yaml`
+go_version      := `yq -r '.versions.go'      build.yaml`
+acfs_version    := `yq -r '.versions.acfs'    build.yaml`
 image_name      := `yq -r '.image.name'       build.yaml`
 local_tag       := `yq -r '.image.local_tag'  build.yaml`
 ci_tag          := `yq -r '.image.ci_tag'     build.yaml`
@@ -24,6 +26,8 @@ versions:
     @echo "alpine:    {{alpine_version}}"
     @echo "trivy:     {{trivy_version}}"
     @echo "busybox:   {{busybox_version}}"
+    @echo "go:        {{go_version}}"
+    @echo "acfs:      {{acfs_version}}"
     @echo "image:     {{image_name}}"
     @echo "local_tag: {{local_tag}}"
     @echo "ci_tag:    {{ci_tag}}"
@@ -38,7 +42,8 @@ prepare: manifest
 
 # Regenerate checksums/manifest.md from build.yaml.
 manifest:
-    @printf '# Third-Party Manifest\n\nGenerated from `build.yaml`; run `just prepare` to regenerate.\n\nThird-party binaries shipped in the final runtime image.\n\n| Binary | Version | Source | Checksum | License |\n|---|---|---|---|---|\n| Trivy | %s | <https://github.com/aquasecurity/trivy/releases/tag/v%s> | [trivy.txt](trivy.txt) | Apache-2.0 |\n| BusyBox | %s | <https://busybox.net/downloads/busybox-%s.tar.bz2> | [busybox.sha256](busybox.sha256) | GPL-2.0-only |\n\nThe CA certificate bundle is copied from Alpine %s during the build and is not\ntreated as a separately versioned executable binary.\n' \
+    @printf '# Runtime Binary Manifest\n\nGenerated from `build.yaml`; run `just prepare` to regenerate.\n\nFirst-party binaries shipped in the final runtime image.\n\n| Binary | Version | Build toolchain | Source | Checksum | License |\n|---|---|---|---|---|---|\n| ACFS | %s | Go %s | <https://github.com/getarcaneapp/acfs/releases/tag/v%s> | GoReleaser `acfs_checksums.txt` release asset | BSD-3-Clause |\n\nThird-party binaries shipped in the final runtime image.\n\n| Binary | Version | Source | Checksum | License |\n|---|---|---|---|---|\n| Trivy | %s | <https://github.com/aquasecurity/trivy/releases/tag/v%s> | [trivy.txt](trivy.txt) | Apache-2.0 |\n| BusyBox | %s | <https://busybox.net/downloads/busybox-%s.tar.bz2> | [busybox.sha256](busybox.sha256) | GPL-2.0-only |\n\nThe ACFS binary and its checksum manifest are produced by the ACFS\nmodule GoReleaser configuration. The CA certificate bundle is copied from\nAlpine %s during the build and is not treated as a separately versioned\nexecutable binary.\n' \
+        '{{acfs_version}}' '{{go_version}}' '{{acfs_version}}' \
         '{{trivy_version}}' '{{trivy_version}}' \
         '{{busybox_version}}' '{{busybox_version}}' \
         '{{alpine_version}}' \
@@ -52,19 +57,20 @@ build: prepare
         --build-arg ALPINE_VERSION={{alpine_version}} \
         --build-arg TRIVY_VERSION={{trivy_version}} \
         --build-arg BUSYBOX_VERSION={{busybox_version}} \
+        --build-arg GO_VERSION={{go_version}} \
+        --build-arg ACFS_VERSION={{acfs_version}} \
         -t {{local_tag}} \
         .
 
-# Build the CI validation image. Tag is parameterized so the workflow can
-# pass arcane-toolbox:ci explicitly.
-build-ci tag=ci_tag: prepare
+# Validate every published architecture without loading or pushing an image.
+build-multi: prepare
     docker buildx build \
-        --load \
-        --platform {{validate_plat}} \
+        --platform {{publish_plats}} \
         --build-arg ALPINE_VERSION={{alpine_version}} \
         --build-arg TRIVY_VERSION={{trivy_version}} \
         --build-arg BUSYBOX_VERSION={{busybox_version}} \
-        -t {{tag}} \
+        --build-arg GO_VERSION={{go_version}} \
+        --build-arg ACFS_VERSION={{acfs_version}} \
         .
 
 # Run the runtime contract checks against an already-built image.
@@ -80,6 +86,8 @@ publish tags: prepare
         --build-arg ALPINE_VERSION={{alpine_version}} \
         --build-arg TRIVY_VERSION={{trivy_version}} \
         --build-arg BUSYBOX_VERSION={{busybox_version}} \
+        --build-arg GO_VERSION={{go_version}} \
+        --build-arg ACFS_VERSION={{acfs_version}} \
         $(printf -- '--tag %s ' {{tags}}) \
         --push \
         .

@@ -27,6 +27,7 @@ run_check "required helper commands are on PATH" \
       test -x "/bin/${helper}"
     done
     test -x /usr/local/bin/trivy
+    test -x /usr/local/bin/acfs
   '
 
 run_check "no extra helper commands slipped into the runtime image" \
@@ -47,6 +48,47 @@ run_check "trivy is installed at the stable path" \
     test -x /usr/local/bin/trivy
     /usr/local/bin/trivy --version >/dev/null
     trivy --version >/dev/null
+  '
+
+run_check "acfs root-confined protocol and mutation workflow succeeds" \
+  docker run --rm "$IMAGE_REF" sh -ceu '
+    fixture=/tmp/acfs-fixture
+    mkdir -p "$fixture"
+
+    acfs version > /tmp/acfs-version.json
+    test "$(head -c 12 /tmp/acfs-version.json)" = "{\"version\":\""
+
+    acfs mkdir --root "$fixture" --path /nested --mode 0750
+    printf payload | acfs write \
+      --root "$fixture" --path /nested/file.txt --size 7 --mode 0640
+    test "$(head -c 7 "$fixture/nested/file.txt")" = payload
+
+    acfs list --root "$fixture" --path /nested > /tmp/acfs-list.json
+    test "$(head -c 13 /tmp/acfs-list.json)" = "{\"entries\":[{"
+
+    acfs stat --root "$fixture" --path /nested/file.txt > /tmp/acfs-stat.json
+    test "$(head -c 10 /tmp/acfs-stat.json)" = "{\"entry\":{"
+
+    acfs walk --root "$fixture" --path / > /tmp/acfs-walk.ndjson
+    test "$(head -c 10 /tmp/acfs-walk.ndjson)" = "{\"entry\":{"
+
+    acfs read --root "$fixture" --path /nested/file.txt --limit 4 \
+      > /tmp/acfs-read.bin
+    test "$(stat -c %s /tmp/acfs-read.bin)" = 20
+    test "$(head -c 4 /tmp/acfs-read.bin)" = ARCW
+
+    if printf excess | acfs write \
+      --root "$fixture" --path /nested/file.txt --size 3 \
+      >/tmp/acfs-error.stdout 2>/tmp/acfs-error.stderr; then
+      echo "acfs accepted excess write input" >&2
+      exit 1
+    fi
+    test ! -s /tmp/acfs-error.stdout
+    test -s /tmp/acfs-error.stderr
+    test "$(head -c 7 "$fixture/nested/file.txt")" = payload
+
+    acfs remove --root "$fixture" --path /nested
+    test ! -e "$fixture/nested"
   '
 
 run_check "gzip-compressed tar workflow succeeds" \
