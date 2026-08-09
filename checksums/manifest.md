@@ -6,7 +6,7 @@ First-party binaries shipped in the final runtime image.
 
 | Binary | Version | Build toolchain | Source | Checksum | License |
 |---|---|---|---|---|---|
-| ACFS | 0.1.0 | Go 1.26.5 | <https://github.com/getarcaneapp/acfs/releases/tag/v0.1.0> | GoReleaser `acfs_checksums.txt` release asset | BSD-3-Clause |
+| ACFS | 0.2.0 | Go 1.26.5 | <https://github.com/getarcaneapp/acfs/releases/tag/v0.2.0> | GoReleaser `acfs_checksums.txt` release asset | BSD-3-Clause |
 
 Third-party binaries shipped in the final runtime image.
 

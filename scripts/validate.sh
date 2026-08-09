@@ -56,7 +56,14 @@ run_check "acfs root-confined protocol and mutation workflow succeeds" \
     mkdir -p "$fixture"
 
     acfs version > /tmp/acfs-version.json
-    test "$(head -c 12 /tmp/acfs-version.json)" = "{\"version\":\""
+    version_response="$(head -c 512 /tmp/acfs-version.json)"
+    case "$version_response" in
+      *\"protocol\":2*) ;;
+      *)
+        echo "acfs does not advertise protocol 2" >&2
+        exit 1
+        ;;
+    esac
 
     acfs mkdir --root "$fixture" --path /nested --mode 0750
     printf payload | acfs write \
@@ -72,6 +79,17 @@ run_check "acfs root-confined protocol and mutation workflow succeeds" \
     acfs walk --root "$fixture" --path / > /tmp/acfs-walk.ndjson
     test "$(head -c 10 /tmp/acfs-walk.ndjson)" = "{\"entry\":{"
 
+    acfs walk --root "$fixture" --path / --max-entries 1 \
+      > /tmp/acfs-bounded-walk.ndjson
+    bounded_walk="$(head -c 2048 /tmp/acfs-bounded-walk.ndjson)"
+    case "$bounded_walk" in
+      *\"end\":true*\"truncated\":true*\"count\":1*\"version\":2*) ;;
+      *)
+        echo "acfs bounded walk did not emit its truncation trailer" >&2
+        exit 1
+        ;;
+    esac
+
     acfs read --root "$fixture" --path /nested/file.txt --limit 4 \
       > /tmp/acfs-read.bin
     test "$(stat -c %s /tmp/acfs-read.bin)" = 20
@@ -85,7 +103,33 @@ run_check "acfs root-confined protocol and mutation workflow succeeds" \
     fi
     test ! -s /tmp/acfs-error.stdout
     test -s /tmp/acfs-error.stderr
+    write_error="$(head -c 2048 /tmp/acfs-error.stderr)"
+    case "$write_error" in
+      *\"code\":\"size_mismatch\"*\"version\":2*) ;;
+      *)
+        echo "acfs did not emit a structured protocol 2 error" >&2
+        exit 1
+        ;;
+    esac
     test "$(head -c 7 "$fixture/nested/file.txt")" = payload
+
+    staging=/tmp/acfs-staging
+    mkdir -p "$staging"
+    printf batch > "$staging/change-0"
+    printf "%s" \
+      "{\"changes\":[{\"operation\":\"create_file\",\"path\":\"/nested/applied.txt\",\"stagedName\":\"change-0\",\"size\":5}],\"version\":2}" \
+      > "$staging/manifest.json"
+    acfs apply --root "$fixture" --staging "$staging" \
+      --manifest manifest.json > /tmp/acfs-apply.json
+    test "$(head -c 5 "$fixture/nested/applied.txt")" = batch
+    apply_response="$(head -c 256 /tmp/acfs-apply.json)"
+    case "$apply_response" in
+      *\"applied\":1*\"version\":2*) ;;
+      *)
+        echo "acfs apply did not report the applied change" >&2
+        exit 1
+        ;;
+    esac
 
     acfs remove --root "$fixture" --path /nested
     test ! -e "$fixture/nested"

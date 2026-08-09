@@ -8,7 +8,7 @@ The final image is built `FROM scratch` and contains only:
 
 - `trivy` (installed at `/usr/local/bin/trivy`)
 - The first-party `acfs` binary (installed at `/usr/local/bin/acfs`)
-  for root-confined listing, walking, metadata, and streaming filesystem I/O
+  for root-confined filesystem reads, traversal, and batch mutations
 - A statically linked BusyBox binary at `/bin/busybox`
 - A curated set of BusyBox applets exposed as standalone commands in `/bin`:
   - `sh`
