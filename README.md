@@ -93,7 +93,8 @@ just clean        # remove dist/
 ```
 
 `just update` updates every pinned version by default. Pass one or more
-component names (`alpine`, `trivy`, or `busybox`) to update only those inputs,
-for example `just update trivy`. Trivy and BusyBox checksums are refreshed from
-their official upstream release files; Alpine is consumed as a container base
-image and has no local checksum file.
+component names (`alpine`, `trivy`, `busybox`, or `acfs`) to update only those
+inputs, for example `just update acfs`. Trivy and BusyBox checksums are refreshed
+from their official upstream release files. ACFS's release checksum manifest is
+validated by the updater and fetched again during the image build; Alpine is
+consumed as a container base image and has no local checksum file.

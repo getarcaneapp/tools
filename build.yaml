@@ -11,7 +11,7 @@ versions:
   trivy: "0.73.0"
   busybox: "1.38.0"
   go: "1.26.5"
-  acfs: "0.2.0"
+  acfs: "0.4.0"
 
 platforms:
   validate: linux/amd64

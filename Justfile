@@ -101,7 +101,7 @@ mirror-dry:
     DRY_RUN=1 ./scripts/mirror.sh
 
 # Resolve and update pinned build inputs and binary checksums.
-# Components: alpine, trivy, busybox, or all (default).
+# Components: alpine, trivy, busybox, acfs, or all (default).
 update *components:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -112,6 +112,7 @@ update *components:
     update_alpine=0
     update_trivy=0
     update_busybox=0
+    update_acfs=0
 
     set -- {{ components }}
     if [ "$#" -eq 0 ]; then
@@ -124,6 +125,7 @@ update *components:
                 update_alpine=1
                 update_trivy=1
                 update_busybox=1
+                update_acfs=1
                 ;;
             alpine)
                 update_alpine=1
@@ -134,9 +136,12 @@ update *components:
             busybox)
                 update_busybox=1
                 ;;
+            acfs)
+                update_acfs=1
+                ;;
             *)
                 printf 'update: unknown component: %s\n' "$component" >&2
-                printf 'valid components: all, alpine, trivy, busybox\n' >&2
+                printf 'valid components: all, alpine, trivy, busybox, acfs\n' >&2
                 exit 2
                 ;;
         esac
@@ -233,6 +238,34 @@ update *components:
         fi
     fi
 
+    if [ "$update_acfs" -eq 1 ]; then
+        acfs_release_url="$(
+            curl -fsSL -o /dev/null -w '%{url_effective}' \
+                https://github.com/getarcaneapp/acfs/releases/latest
+        )"
+        acfs_tag="${acfs_release_url##*/}"
+        acfs_version="${acfs_tag#v}"
+        validate_version acfs "$acfs_version" \
+            '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+
+        curl -fsSL \
+            "https://github.com/getarcaneapp/acfs/releases/download/v${acfs_version}/acfs_checksums.txt" \
+            -o "${temp_dir}/acfs_checksums.txt"
+
+        for acfs_arch in 386 amd64 arm64 armv7 ppc64le s390x; do
+            acfs_file="acfs_linux_${acfs_arch}"
+            match_count="$(
+                grep -Ec "^[0-9a-f]{64}  ${acfs_file}$" \
+                    "${temp_dir}/acfs_checksums.txt" || true
+            )"
+            if [ "$match_count" -ne 1 ]; then
+                printf 'update: expected one checksum for %s, found %s\n' \
+                    "$acfs_file" "$match_count" >&2
+                exit 1
+            fi
+        done
+    fi
+
     printf 'Resolved versions:\n'
     if [ "$update_alpine" -eq 1 ]; then
         printf '  alpine:  %s -> %s\n' \
@@ -245,6 +278,10 @@ update *components:
     if [ "$update_busybox" -eq 1 ]; then
         printf '  busybox: %s -> %s\n' \
             "$(yq -r '.versions.busybox' "$config_file")" "$busybox_version"
+    fi
+    if [ "$update_acfs" -eq 1 ]; then
+        printf '  acfs:    %s -> %s\n' \
+            "$(yq -r '.versions.acfs' "$config_file")" "$acfs_version"
     fi
 
     if [ "$dry_run" = "1" ]; then
@@ -297,6 +334,9 @@ update *components:
     if [ "$update_busybox" -eq 1 ]; then
         update_version busybox BUSYBOX_VERSION "$busybox_version"
         cp "${temp_dir}/busybox.sha256" checksums/busybox.sha256
+    fi
+    if [ "$update_acfs" -eq 1 ]; then
+        update_version acfs ACFS_VERSION "$acfs_version"
     fi
 
     just manifest
