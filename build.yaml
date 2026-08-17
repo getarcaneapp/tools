@@ -8,10 +8,10 @@ image:
 
 versions:
   alpine: "3.24"
-  trivy: "0.73.0"
+  trivy: "0.74.0"
   busybox: "1.38.0"
   go: "1.26.5"
-  acfs: "0.4.0"
+  acfs: "0.4.1"
 
 platforms:
   validate: linux/amd64
