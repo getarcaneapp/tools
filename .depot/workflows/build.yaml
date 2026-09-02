@@ -14,10 +14,7 @@ on:
       - "v*"
   workflow_dispatch:
 permissions:
-  artifact-metadata: write
-  attestations: write
   contents: read
-  id-token: write
   packages: write
 jobs:
   validate:
@@ -93,8 +90,6 @@ jobs:
             echo "images<<EOF"
             yq -r '.image.targets | .[]' build.yaml
             echo "EOF"
-            echo "ghcr_subject=$(yq -r '.image.targets[] | select(test("^ghcr[.]io/"))' build.yaml)"
-            echo "hub_subject=index.docker.io/$(yq -r '.image.targets[] | select(test("^docker[.]io/")) | sub("^docker[.]io/"; "")' build.yaml)"
           } >> "$GITHUB_OUTPUT"
       - name: Set up Depot CLI
         uses: depot/setup-action@v1
@@ -151,22 +146,6 @@ jobs:
           for image in ${IMAGES}; do
             cosign sign --yes --key env://COSIGN_PRIVATE_KEY "${image}@${{ steps.build.outputs.digest }}"
           done
-
-      # GitHub's attestation docs require index.docker.io/... as the subject
-      # name for Docker Hub; GHCR refs pass through unchanged.
-      - name: Generate image digest attestation (GHCR)
-        uses: actions/attest@v4.2.2
-        with:
-          subject-name: ${{ steps.cfg.outputs.ghcr_subject }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
-
-      - name: Generate image digest attestation (Docker Hub)
-        uses: actions/attest@v4.2.2
-        with:
-          subject-name: ${{ steps.cfg.outputs.hub_subject }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
 
       - name: Record published digest
         run: |
