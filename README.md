@@ -35,8 +35,9 @@ The final image is built `FROM scratch` and contains only:
 Pinned versions, source URLs, and checksum verification details are tracked in
 [`checksums/manifest.md`](checksums/manifest.md) (generated from `build.yaml`
 by `just prepare`) alongside the per-binary checksum files in `checksums/`.
-`acfs` is pinned to an ACFS module release and verified against the
-checksum manifest generated for that release by GoReleaser.
+`acfs` is built from source in-image at a pinned release tag of the
+[`getarcaneapp/kit`](https://github.com/getarcaneapp/kit) monorepo
+(tags `acfs/vX.Y.Z`); Go module dependencies are verified via sum.golang.org.
 
 ## Trivy database mirror
 

@@ -3,33 +3,37 @@
 ARG ALPINE_VERSION=3.24
 ARG TRIVY_VERSION=0.74.0
 ARG BUSYBOX_VERSION=1.38.0
-ARG GO_VERSION=1.26.5
+ARG GO_VERSION=1.27.0
 ARG ACFS_VERSION=0.4.1
 
-FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS acfs-fetcher
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS acfs-builder
 ARG TARGETARCH
 ARG TARGETVARIANT
+ARG GO_VERSION
 ARG ACFS_VERSION
 
-RUN apk add --no-cache ca-certificates curl
+RUN apk add --no-cache ca-certificates git
 
-WORKDIR /work
+RUN git clone --depth 1 --branch "acfs/v${ACFS_VERSION}" \
+      https://github.com/getarcaneapp/kit.git /kit
+
+WORKDIR /kit/acfs
 
 RUN case "${TARGETARCH}/${TARGETVARIANT}" in \
-    amd64/*) acfs_arch='amd64' ;; \
-    386/*) acfs_arch='386' ;; \
-    arm64/*) acfs_arch='arm64' ;; \
-    arm/v7) acfs_arch='armv7' ;; \
-    ppc64le/*) acfs_arch='ppc64le' ;; \
-    s390x/*) acfs_arch='s390x' ;; \
+    amd64/*) acfs_goarch='amd64' ;; \
+    386/*) acfs_goarch='386' ;; \
+    arm64/*) acfs_goarch='arm64' ;; \
+    arm/v7) acfs_goarch='arm' ;; \
+    ppc64le/*) acfs_goarch='ppc64le' ;; \
+    s390x/*) acfs_goarch='s390x' ;; \
     *) echo "unsupported TARGETARCH/TARGETVARIANT: ${TARGETARCH}/${TARGETVARIANT}" >&2; exit 1 ;; \
     esac && \
-    acfs_file="acfs_linux_${acfs_arch}" && \
-    release_url="https://github.com/getarcaneapp/acfs/releases/download/v${ACFS_VERSION}" && \
-    curl -fsSLO "${release_url}/${acfs_file}" && \
-    curl -fsSL "${release_url}/acfs_checksums.txt" -o acfs_checksums.txt && \
-    grep "  ${acfs_file}$" acfs_checksums.txt | sha256sum -c - && \
-    install -Dm755 "${acfs_file}" /out/usr/local/bin/acfs
+    acfs_goenv="GOOS=linux GOARCH=${acfs_goarch}" ; \
+    [ "${acfs_goarch}" != "arm" ] || acfs_goenv="${acfs_goenv} GOARM=7" ; \
+    env CGO_ENABLED=0 ${acfs_goenv} \
+    go build -trimpath -buildvcs=false \
+      -ldflags "-s -w -X go.getarcane.app/acfs/internal/version.Version=v${ACFS_VERSION}" \
+      -o /out/usr/local/bin/acfs ./cmd
 
 FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS trivy-fetcher
 ARG TARGETARCH
@@ -118,4 +122,4 @@ LABEL app.getarcane.tools.acfs.version="${ACFS_VERSION}" \
 
 COPY --from=trivy-fetcher /out/usr/local/bin/trivy /usr/local/bin/trivy
 COPY --from=trivy-fetcher /out/etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=acfs-fetcher /out/usr/local/bin/acfs /usr/local/bin/acfs
+COPY --from=acfs-builder /out/usr/local/bin/acfs /usr/local/bin/acfs

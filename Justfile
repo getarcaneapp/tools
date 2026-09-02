@@ -42,7 +42,7 @@ prepare: manifest
 
 # Regenerate checksums/manifest.md from build.yaml.
 manifest:
-    @printf '# Runtime Binary Manifest\n\nGenerated from `build.yaml`; run `just prepare` to regenerate.\n\nFirst-party binaries shipped in the final runtime image.\n\n| Binary | Version | Build toolchain | Source | Checksum | License |\n|---|---|---|---|---|---|\n| ACFS | %s | Go %s | <https://github.com/getarcaneapp/acfs/releases/tag/v%s> | GoReleaser `acfs_checksums.txt` release asset | BSD-3-Clause |\n\nThird-party binaries shipped in the final runtime image.\n\n| Binary | Version | Source | Checksum | License |\n|---|---|---|---|---|\n| Trivy | %s | <https://github.com/aquasecurity/trivy/releases/tag/v%s> | [trivy.txt](trivy.txt) | Apache-2.0 |\n| BusyBox | %s | <https://busybox.net/downloads/busybox-%s.tar.bz2> | [busybox.sha256](busybox.sha256) | GPL-2.0-only |\n\nThe ACFS binary and its checksum manifest are produced by the ACFS\nmodule GoReleaser configuration. The CA certificate bundle is copied from\nAlpine %s during the build and is not treated as a separately versioned\nexecutable binary.\n' \
+    @printf '# Runtime Binary Manifest\n\nGenerated from `build.yaml`; run `just prepare` to regenerate.\n\nFirst-party binaries shipped in the final runtime image.\n\n| Binary | Version | Build toolchain | Source | Checksum | License |\n|---|---|---|---|---|---|\n| ACFS | %s | Go %s | <https://github.com/getarcaneapp/kit/releases/tag/acfs/v%s> | Built from source in-image at the pinned kit tag (module checksums verified via sum.golang.org) | BSD-3-Clause |\n\nThird-party binaries shipped in the final runtime image.\n\n| Binary | Version | Source | Checksum | License |\n|---|---|---|---|---|\n| Trivy | %s | <https://github.com/aquasecurity/trivy/releases/tag/v%s> | [trivy.txt](trivy.txt) | Apache-2.0 |\n| BusyBox | %s | <https://busybox.net/downloads/busybox-%s.tar.bz2> | [busybox.sha256](busybox.sha256) | GPL-2.0-only |\n\nThe ACFS binary is built from source in-image from the pinned kit\nmonorepo tag, with Go module checksums verified via sum.golang.org. The CA certificate bundle is copied from\nAlpine %s during the build and is not treated as a separately versioned\nexecutable binary.\n' \
         '{{acfs_version}}' '{{go_version}}' '{{acfs_version}}' \
         '{{trivy_version}}' '{{trivy_version}}' \
         '{{busybox_version}}' '{{busybox_version}}' \
@@ -240,31 +240,18 @@ update *components:
     fi
 
     if [ "$update_acfs" -eq 1 ]; then
-        acfs_release_url="$(
-            curl -fsSL -o /dev/null -w '%{url_effective}' \
-                https://github.com/getarcaneapp/acfs/releases/latest
+        # acfs lives in the getarcaneapp/kit monorepo; release tags are
+        # prefixed acfs/vX.Y.Z. Annotated tags also list a peeled
+        # `^{}` entry, so drop those before picking the highest version.
+        acfs_tag="$(
+            git ls-remote --tags \
+                https://github.com/getarcaneapp/kit \
+                'refs/tags/acfs/v*' \
+            | cut -d/ -f4 | grep -v '\^{}$' | sort -V | tail -n 1
         )"
-        acfs_tag="${acfs_release_url##*/}"
         acfs_version="${acfs_tag#v}"
         validate_version acfs "$acfs_version" \
             '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
-
-        curl -fsSL \
-            "https://github.com/getarcaneapp/acfs/releases/download/v${acfs_version}/acfs_checksums.txt" \
-            -o "${temp_dir}/acfs_checksums.txt"
-
-        for acfs_arch in 386 amd64 arm64 armv7 ppc64le s390x; do
-            acfs_file="acfs_linux_${acfs_arch}"
-            match_count="$(
-                grep -Ec "^[0-9a-f]{64}  ${acfs_file}$" \
-                    "${temp_dir}/acfs_checksums.txt" || true
-            )"
-            if [ "$match_count" -ne 1 ]; then
-                printf 'update: expected one checksum for %s, found %s\n' \
-                    "$acfs_file" "$match_count" >&2
-                exit 1
-            fi
-        done
     fi
 
     printf 'Resolved versions:\n'
