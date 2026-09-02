@@ -1,8 +1,9 @@
 #!/bin/sh
-# Mirror Trivy databases from upstream to ghcr.io/getarcaneapp.
+# Mirror Trivy databases from upstream to ghcr.io/getarcaneapp and
+# docker.io/getarcaneapp.
 # Reads mirror config from build.yaml (mirrors: block).
 #
-# Prerequisites: oras, yq (v4+), docker login to ghcr.io
+# Prerequisites: oras, yq (v4+), docker login to ghcr.io and docker.io
 #
 # Usage:
 #   ./scripts/mirror.sh              # mirror all three DBs
@@ -26,7 +27,7 @@ fi
 
 failed=0
 
-yq -r '.mirrors[] | .source + " " + .target + " " + .tag' "$CONFIG_FILE" | \
+yq -r '.mirrors[] | .source as $s | .tag as $t | .targets[] | $s + " " + . + " " + $t' "$CONFIG_FILE" | \
 while IFS=' ' read -r source target tag; do
   src="${source}:${tag}"
   dst="${target}:${tag}"

@@ -42,28 +42,38 @@ checksum manifest generated for that release by GoReleaser.
 
 This repo also mirrors the three Trivy OCI databases needed for
 [Trivy self-hosting](https://trivy.dev/docs/latest/guide/advanced/self-hosting/)
-to `ghcr.io/getarcaneapp` on a 6-hour cron:
+to `ghcr.io/getarcaneapp` and `docker.io/getarcaneapp` on a 6-hour cron:
 
-| Database | Mirror reference |
-|---|---|
-| Vulnerability DB    | `ghcr.io/getarcaneapp/trivy-db:2` |
-| Java DB             | `ghcr.io/getarcaneapp/trivy-java-db:1` |
-| Checks (misconfig)  | `ghcr.io/getarcaneapp/trivy-checks:1` |
+| Database | GHCR | Docker Hub |
+|---|---|---|
+| Vulnerability DB    | `ghcr.io/getarcaneapp/trivy-db:2`          | `docker.io/getarcaneapp/trivy-db:2`          |
+| Java DB             | `ghcr.io/getarcaneapp/trivy-java-db:1`     | `docker.io/getarcaneapp/trivy-java-db:1`     |
+| Checks (misconfig)  | `ghcr.io/getarcaneapp/trivy-checks:1`      | `docker.io/getarcaneapp/trivy-checks:1`      |
+
+The Docker Hub namespace is in the
+[Docker Sponsored Open Source](https://www.docker.com/community/open-source/) program,
+so pulls from it are not rate-limited.
 
 The mirror runs via
-[`.github/workflows/mirror-trivy-db.yaml`](.github/workflows/mirror-trivy-db.yaml)
+[`.depot/workflows/mirror-trivy-db.yaml`](.depot/workflows/mirror-trivy-db.yaml)
+(Depot CI, production) with an equivalent
+[`.github/workflows/mirror-trivy-db.yaml`](.github/workflows/mirror-trivy-db.yaml),
 and copies upstream OCI artifacts verbatim — the mirrored digest matches
 upstream exactly. Mirror entries are declared in [`build.yaml`](build.yaml)
 under `mirrors:`. Mirrored artifacts are signed with the same cosign key as
 `ghcr.io/getarcaneapp/tools` and have GitHub provenance attestations attached.
 
-To point Trivy at the mirror:
+The toolbox image itself is published to both `ghcr.io/getarcaneapp/tools`
+and `docker.io/getarcaneapp/tools` on `v*` tag pushes, using the same tags
+(`X.Y.Z`, `X.Y`, `X`, `latest`, `sha-<commit>`) on both registries.
+
+To point Trivy at the mirror (Trivy tries the listed repositories in order):
 
 ```sh
 trivy image \
-  --db-repository            ghcr.io/getarcaneapp/trivy-db:2 \
-  --java-db-repository       ghcr.io/getarcaneapp/trivy-java-db:1 \
-  --checks-bundle-repository ghcr.io/getarcaneapp/trivy-checks:1 \
+  --db-repository            docker.io/getarcaneapp/trivy-db:2,ghcr.io/getarcaneapp/trivy-db:2 \
+  --java-db-repository       docker.io/getarcaneapp/trivy-java-db:1,ghcr.io/getarcaneapp/trivy-java-db:1 \
+  --checks-bundle-repository docker.io/getarcaneapp/trivy-checks:1,ghcr.io/getarcaneapp/trivy-checks:1 \
   <image>
 ```
 

@@ -2,7 +2,14 @@
 # Edited by humans; consumed by the Justfile via yq (Mike Farah's Go yq, v4+).
 
 image:
+  # Primary name (used for local dev tags); published to every entry in
+  # targets on tag pushes. The docker.io/getarcaneapp namespace is in the
+  # Docker Sponsored Open Source program, so pulls from it are exempt from
+  # Docker Hub rate limits.
   name: ghcr.io/getarcaneapp/tools
+  targets:
+    - ghcr.io/getarcaneapp/tools
+    - docker.io/getarcaneapp/tools
   local_tag: ghcr.io/getarcaneapp/tools:dev
   ci_tag: ghcr.io/getarcaneapp/tools:ci
 
@@ -72,22 +79,30 @@ busybox:
     - tar
     - test
 
-# Trivy database mirrors. Each entry is mirrored from `source:tag` to
-# `target:tag` by .github/workflows/mirror-trivy-db.yaml on a 6h cron.
-# These DBs are architecture-independent OCI artifacts
+# Trivy database mirrors. Each entry is mirrored from `source:tag` to every
+# `targets:tag` by the mirror-trivy-db workflows on a 6h cron. These DBs are
+# architecture-independent OCI artifacts
 # Tags follow upstream Trivy's pinned major-version convention.
+# The docker.io/getarcaneapp namespace is in the Docker Sponsored Open Source
+# program, so pulls from it are exempt from Docker Hub rate limits.
 mirrors:
   - name: trivy-db
     source: ghcr.io/aquasecurity/trivy-db
-    target: ghcr.io/getarcaneapp/trivy-db
+    targets:
+      - ghcr.io/getarcaneapp/trivy-db
+      - docker.io/getarcaneapp/trivy-db
     tag: "2"
 
   - name: trivy-java-db
     source: ghcr.io/aquasecurity/trivy-java-db
-    target: ghcr.io/getarcaneapp/trivy-java-db
+    targets:
+      - ghcr.io/getarcaneapp/trivy-java-db
+      - docker.io/getarcaneapp/trivy-java-db
     tag: "1"
 
   - name: trivy-checks
     source: ghcr.io/aquasecurity/trivy-checks
-    target: ghcr.io/getarcaneapp/trivy-checks
+    targets:
+      - ghcr.io/getarcaneapp/trivy-checks
+      - docker.io/getarcaneapp/trivy-checks
     tag: "1"

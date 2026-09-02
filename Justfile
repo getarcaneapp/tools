@@ -92,7 +92,8 @@ publish tags: prepare
         --push \
         .
 
-# Mirror Trivy databases to ghcr.io/getarcaneapp. Prereq: oras, docker login to ghcr.io.
+# Mirror Trivy databases to ghcr.io/getarcaneapp and docker.io/getarcaneapp.
+# Prereq: oras, docker login to ghcr.io and docker.io.
 mirror:
     ./scripts/mirror.sh
 
