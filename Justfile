@@ -1,108 +1,62 @@
-# Justfile — orchestrates the arcane-toolbox build from build.yaml.
-# Prereqs: just, yq (github.com/mikefarah/yq, v4+), docker (with buildx).
-
+set working-directory := './'
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
-config := "build.yaml"
-
-# Resolved at startup so a broken build.yaml fails before any work runs.
-alpine_version  := `yq -r '.versions.alpine'  build.yaml`
-trivy_version   := `yq -r '.versions.trivy'   build.yaml`
-busybox_version := `yq -r '.versions.busybox' build.yaml`
-go_version      := `yq -r '.versions.go'      build.yaml`
-acfs_version    := `yq -r '.versions.acfs'    build.yaml`
-image_name      := `yq -r '.image.name'       build.yaml`
-local_tag       := `yq -r '.image.local_tag'  build.yaml`
-ci_tag          := `yq -r '.image.ci_tag'     build.yaml`
-validate_plat   := `yq -r '.platforms.validate' build.yaml`
-publish_plats   := `yq -r '.platforms.publish | join(",")' build.yaml`
-
-default: list
-
-list:
+_default:
     @just --list
 
-versions:
-    @echo "alpine:    {{alpine_version}}"
-    @echo "trivy:     {{trivy_version}}"
-    @echo "busybox:   {{busybox_version}}"
-    @echo "go:        {{go_version}}"
-    @echo "acfs:      {{acfs_version}}"
-    @echo "image:     {{image_name}}"
-    @echo "local_tag: {{local_tag}}"
-    @echo "ci_tag:    {{ci_tag}}"
-    @echo "validate:  {{validate_plat}}"
-    @echo "publish:   {{publish_plats}}"
+_prepare:
+    #!/usr/bin/env bash
+    set -euo pipefail
 
-# Materialize YAML-derived inputs the Dockerfile expects.
-prepare: manifest
+    config="build.yaml"
+    alpine_version="$(yq -r '.versions.alpine' "$config")"
+    trivy_version="$(yq -r '.versions.trivy' "$config")"
+    busybox_version="$(yq -r '.versions.busybox' "$config")"
+    go_version="$(yq -r '.versions.go' "$config")"
+    acfs_version="$(yq -r '.versions.acfs' "$config")"
+
     mkdir -p dist
-    yq -r '.busybox.config[] | . + "=y"' {{config}} > dist/busybox.config
-    yq -r '.busybox.applets[]'           {{config}} > dist/applets.txt
+    yq -r '.busybox.config[] | . + "=y"' "$config" > dist/busybox.config
+    yq -r '.busybox.applets[]' "$config" > dist/applets.txt
 
-# Regenerate checksums/manifest.md from build.yaml.
-manifest:
-    @printf '# Runtime Binary Manifest\n\nGenerated from `build.yaml`; run `just prepare` to regenerate.\n\nFirst-party binaries shipped in the final runtime image.\n\n| Binary | Version | Build toolchain | Source | Checksum | License |\n|---|---|---|---|---|---|\n| ACFS | %s | Go %s | <https://github.com/getarcaneapp/kit/releases/tag/acfs/v%s> | Built from source in-image at the pinned kit tag (module checksums verified via sum.golang.org) | BSD-3-Clause |\n\nThird-party binaries shipped in the final runtime image.\n\n| Binary | Version | Source | Checksum | License |\n|---|---|---|---|---|\n| Trivy | %s | <https://github.com/aquasecurity/trivy/releases/tag/v%s> | [trivy.txt](trivy.txt) | Apache-2.0 |\n| BusyBox | %s | <https://busybox.net/downloads/busybox-%s.tar.bz2> | [busybox.sha256](busybox.sha256) | GPL-2.0-only |\n\nThe ACFS binary is built from source in-image from the pinned kit\nmonorepo tag, with Go module checksums verified via sum.golang.org. The CA certificate bundle is copied from\nAlpine %s during the build and is not treated as a separately versioned\nexecutable binary.\n' \
-        '{{acfs_version}}' '{{go_version}}' '{{acfs_version}}' \
-        '{{trivy_version}}' '{{trivy_version}}' \
-        '{{busybox_version}}' '{{busybox_version}}' \
-        '{{alpine_version}}' \
+    printf '# Runtime Binary Manifest\n\nGenerated from `build.yaml`; run `just _prepare` to regenerate.\n\nFirst-party binaries shipped in the final runtime image.\n\n| Binary | Version | Build toolchain | Source | Checksum | License |\n|---|---|---|---|---|---|\n| ACFS | %s | Go %s | <https://github.com/getarcaneapp/kit/releases/tag/acfs/v%s> | Built from source in-image at the pinned kit tag (module checksums verified via sum.golang.org) | BSD-3-Clause |\n\nThird-party binaries shipped in the final runtime image.\n\n| Binary | Version | Source | Checksum | License |\n|---|---|---|---|---|\n| Trivy | %s | <https://github.com/aquasecurity/trivy/releases/tag/v%s> | [trivy.txt](trivy.txt) | Apache-2.0 |\n| BusyBox | %s | <https://busybox.net/downloads/busybox-%s.tar.bz2> | [busybox.sha256](busybox.sha256) | GPL-2.0-only |\n\nThe ACFS binary is built from source in-image from the pinned kit\nmonorepo tag, with Go module checksums verified via sum.golang.org. The CA certificate bundle is copied from\nAlpine %s during the build and is not treated as a separately versioned\nexecutable binary.\n' \
+        "$acfs_version" "$go_version" "$acfs_version" \
+        "$trivy_version" "$trivy_version" \
+        "$busybox_version" "$busybox_version" \
+        "$alpine_version" \
         > checksums/manifest.md
 
-# Build for the validate platform, load into local docker as local_tag.
-build: prepare
-    docker buildx build \
-        --load \
-        --platform {{validate_plat}} \
-        --build-arg ALPINE_VERSION={{alpine_version}} \
-        --build-arg TRIVY_VERSION={{trivy_version}} \
-        --build-arg BUSYBOX_VERSION={{busybox_version}} \
-        --build-arg GO_VERSION={{go_version}} \
-        --build-arg ACFS_VERSION={{acfs_version}} \
-        -t {{local_tag}} \
-        .
+# Build and load the image. Pass buildx options to override tags, platforms, or output.
+[positional-arguments]
+build *args: _prepare
+    #!/usr/bin/env bash
+    set -euo pipefail
 
-# Validate every published architecture without loading or pushing an image.
-build-multi: prepare
-    docker buildx build \
-        --platform {{publish_plats}} \
-        --build-arg ALPINE_VERSION={{alpine_version}} \
-        --build-arg TRIVY_VERSION={{trivy_version}} \
-        --build-arg BUSYBOX_VERSION={{busybox_version}} \
-        --build-arg GO_VERSION={{go_version}} \
-        --build-arg ACFS_VERSION={{acfs_version}} \
-        .
+    build_args=()
+    for component in alpine trivy busybox go acfs; do
+        version="$(yq -r ".versions.$component" build.yaml)"
+        build_args+=(--build-arg "$(printf '%s' "$component" | tr '[:lower:]' '[:upper:]')_VERSION=$version")
+    done
 
-# Run the runtime contract checks against an already-built image.
-validate tag=ci_tag:
-    ./scripts/validate.sh {{tag}}
+    output_arg=--load
+    for arg in "$@"; do
+        case "$arg" in
+            --push|--push=*|--output|--output=*|-o|-o?*|--load|--load=*) output_arg="";;
+        esac
+    done
 
-# Multi-platform build + push via Depot CLI. Workstation convenience —
-# CI uses depot/build-push-action so it can hand the digest to cosign/attest.
-publish tags: prepare
-    depot build \
-        --project np622krb2x \
-        --platform {{publish_plats}} \
-        --build-arg ALPINE_VERSION={{alpine_version}} \
-        --build-arg TRIVY_VERSION={{trivy_version}} \
-        --build-arg BUSYBOX_VERSION={{busybox_version}} \
-        --build-arg GO_VERSION={{go_version}} \
-        --build-arg ACFS_VERSION={{acfs_version}} \
-        $(printf -- '--tag %s ' {{tags}}) \
-        --push \
-        .
+    tag="$(yq -r '.image.local_tag' build.yaml)"
+    docker buildx build --tag "$tag" "${build_args[@]}" ${output_arg:+"$output_arg"} "$@" .
 
-# Mirror Trivy databases to ghcr.io/getarcaneapp and docker.io/getarcaneapp.
-# Prereq: oras, docker login to ghcr.io and docker.io.
-mirror:
-    ./scripts/mirror.sh
+# Check the built image's runtime contract.
+test tag="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tag="{{ tag }}"
+    ./scripts/validate.sh "${tag:-$(yq -r '.image.local_tag' build.yaml)}"
 
-# Dry-run mirror: resolve digests only, no push.
-mirror-dry:
-    DRY_RUN=1 ./scripts/mirror.sh
-
-# Resolve and update pinned build inputs and binary checksums.
-# Components: alpine, trivy, busybox, acfs, or all (default).
+# Update pinned versions and checksums. Components: alpine, trivy, busybox, acfs, all.
+[positional-arguments]
 update *components:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -115,7 +69,6 @@ update *components:
     update_busybox=0
     update_acfs=0
 
-    set -- {{ components }}
     if [ "$#" -eq 0 ]; then
         set -- all
     fi
@@ -327,12 +280,13 @@ update *components:
         update_version acfs ACFS_VERSION "$acfs_version"
     fi
 
-    just manifest
+    just _prepare
     printf 'Updated selected versions, checksums, and checksums/manifest.md.\n'
 
-# Show the latest upstream versions without changing files.
-update-dry *components:
-    DRY_RUN=1 just update {{ components }}
+# Mirror Trivy databases to GHCR and Docker Hub.
+mirror:
+    ./scripts/mirror.sh
 
+# Remove generated build inputs.
 clean:
     rm -rf dist

@@ -1,6 +1,6 @@
 # Runtime Binary Manifest
 
-Generated from `build.yaml`; run `just prepare` to regenerate.
+Generated from `build.yaml`; run `just _prepare` to regenerate.
 
 First-party binaries shipped in the final runtime image.
 

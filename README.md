@@ -34,7 +34,7 @@ The final image is built `FROM scratch` and contains only:
 
 Pinned versions, source URLs, and checksum verification details are tracked in
 [`checksums/manifest.md`](checksums/manifest.md) (generated from `build.yaml`
-by `just prepare`) alongside the per-binary checksum files in `checksums/`.
+during builds and updates) alongside the per-binary checksum files in `checksums/`.
 `acfs` is built from source in-image at a pinned release tag of the
 [`getarcaneapp/kit`](https://github.com/getarcaneapp/kit) monorepo
 (tags `acfs/vX.Y.Z`); Go module dependencies are verified via sum.golang.org.
@@ -92,15 +92,18 @@ Prereqs:
 Common recipes:
 
 ```sh
-just              # list recipes
-just versions     # print resolved values from build.yaml
-just prepare      # render dist/busybox.config and dist/applets.txt from YAML
-just build        # build image for the local platform, load as arcane-toolbox:dev
-just build-multi  # validate all published architectures without loading or pushing
-just validate     # run runtime-contract checks against arcane-toolbox:ci
-just update-dry   # show the latest upstream versions without changing files
-just update       # update all versions, checksums, and the generated manifest
-just clean        # remove dist/
+just                       # list commands
+just build                 # build and load ghcr.io/getarcaneapp/tools:dev
+just test                  # check the built image's runtime contract
+just test custom-image:tag # check another image
+just -- build --platform linux/arm64 # build for a specific platform
+just -- build --push --platform linux/amd64,linux/arm64 -t ghcr.io/getarcaneapp/tools:latest
+DRY_RUN=1 just update       # preview upstream version updates
+just update acfs           # update only ACFS
+just update                # update all versions, checksums, and the manifest
+DRY_RUN=1 just mirror       # resolve mirror digests without pushing
+just mirror                # mirror Trivy databases
+just clean                 # remove dist/
 ```
 
 `just update` updates every pinned version by default. Pass one or more
