@@ -112,17 +112,3 @@ inputs, for example `just update acfs`. Trivy and BusyBox checksums are refreshe
 from their official upstream release files. ACFS's release checksum manifest is
 validated by the updater and fetched again during the image build; Alpine is
 consumed as a container base image and has no local checksum file.
-
-## Manual release
-
-To publish an existing version tag through Depot CI, dispatch the build workflow
-from `main` and supply the tag:
-
-```sh
-depot ci dispatch --org g7r5wqb57k --repo getarcaneapp/tools \
-  --workflow build.yaml --ref main --input release_tag=v0.10.3
-```
-
-The workflow checks out the supplied tag, validates the runtime image, and then
-publishes the versioned images to both registries. A dispatch without
-`release_tag` only runs validation.
