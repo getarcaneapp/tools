@@ -30,9 +30,10 @@ RUN case "${TARGETARCH}/${TARGETVARIANT}" in \
     esac && \
     acfs_goenv="GOOS=linux GOARCH=${acfs_goarch}" ; \
     [ "${acfs_goarch}" != "arm" ] || acfs_goenv="${acfs_goenv} GOARM=7" ; \
+    acfs_pkg='kit.getarcane.app/acfs/internal/version' ; \
     env CGO_ENABLED=0 ${acfs_goenv} \
     go build -trimpath -buildvcs=false \
-      -ldflags "-s -w -X go.getarcane.app/acfs/internal/version.Version=v${ACFS_VERSION}" \
+      -ldflags "-s -w -X ${acfs_pkg}.Version=v${ACFS_VERSION} -X ${acfs_pkg}.Revision=$(git rev-parse HEAD) -X ${acfs_pkg}.BuildTime=$(TZ=UTC git log -1 --format=%cd --date=format-local:%Y-%m-%dT%H:%M:%SZ)" \
       -o /out/usr/local/bin/acfs ./cmd
 
 FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS trivy-fetcher
