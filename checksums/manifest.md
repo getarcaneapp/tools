@@ -6,7 +6,7 @@ First-party binaries shipped in the final runtime image.
 
 | Binary | Version | Build toolchain | Source | Checksum | License |
 |---|---|---|---|---|---|
-| ACFS | 0.7.0 | Go 1.27.0 | <https://github.com/getarcaneapp/kit/releases/tag/acfs/v0.7.0> | Built from source in-image at the pinned kit tag (module checksums verified via sum.golang.org) | BSD-3-Clause |
+| ACFS | 0.10.2 | Go 1.27.0 | <https://github.com/getarcaneapp/kit/releases/tag/acfs/v0.10.2> | Built from source in-image at the pinned kit tag (module checksums verified via sum.golang.org) | BSD-3-Clause |
 
 Third-party binaries shipped in the final runtime image.
 
