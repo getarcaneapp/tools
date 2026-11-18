@@ -47,6 +47,8 @@ busybox:
     - CONFIG_FEATURE_STAT_FORMAT
     - CONFIG_FEATURE_TAR_CREATE
     - CONFIG_FEATURE_TAR_GNU_EXTENSIONS
+    - CONFIG_CHMOD
+    - CONFIG_CHOWN
     - CONFIG_FIND
     - CONFIG_GZIP
     - CONFIG_HEAD
@@ -78,6 +80,8 @@ busybox:
     - mktemp
     - tar
     - test
+    - chown
+    - chmod
 
 # Trivy database mirrors. Each entry is mirrored from `source:tag` to every
 # `targets:tag` by the mirror-trivy-db workflows on a 6h cron. These DBs are
