@@ -25,6 +25,8 @@ The final image is built `FROM scratch` and contains only:
   - `mktemp`
   - `tar`
   - `test`
+  - `chown`
+  - `chmod`
 - CA certificates bundle at `/etc/ssl/certs/ca-certificates.crt`
 - Writable runtime directories:
   - `/tmp` (mode `1777`)
