@@ -101,7 +101,7 @@ update *components:
         esac
     done
 
-    for command_name in curl yq awk grep sort sed just; do
+    for command_name in curl git yq awk grep sort sed just; do
         if ! command -v "$command_name" >/dev/null 2>&1; then
             printf 'update: %s is required\n' "$command_name" >&2
             exit 2
@@ -134,11 +134,17 @@ update *components:
     fi
 
     if [ "$update_trivy" -eq 1 ]; then
-        trivy_release_url="$(
-            curl -fsSL -o /dev/null -w '%{url_effective}' \
-                https://github.com/aquasecurity/trivy/releases/latest
+        # Resolve the newest stable tag over the git protocol rather than
+        # the releases/latest web page, which is not always reachable.
+        # Pre-release tags are skipped; a tag whose release assets are
+        # not published yet fails at the checksum download below.
+        trivy_tag="$(
+            git ls-remote --tags \
+                https://github.com/aquasecurity/trivy \
+                'refs/tags/v*' \
+            | cut -d/ -f3 | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V | tail -n 1
         )"
-        trivy_tag="${trivy_release_url##*/}"
         trivy_version="${trivy_tag#v}"
         validate_version trivy "$trivy_version" \
             '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
